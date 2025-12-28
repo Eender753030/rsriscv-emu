@@ -55,7 +55,7 @@ impl RiscV {
             Types::IType {imm, rs1, rd, action} => {
                 match action {
                     Action::ADDI => {
-                        self.registers.write(rd, self.registers.read(rs1)? + imm)?; 
+                        self.registers.write(rd, self.registers.read(rs1)? + imm as u32)?; 
                     }
                 }
             }
