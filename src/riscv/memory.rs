@@ -7,13 +7,17 @@ pub struct Memory {
 
 impl Memory {
     pub fn new(size: usize) -> Self {
-        Memory{size, space: vec![0; size]}
+        if size < 4 {
+            Memory{size: 4, space: vec![0; 4]}
+        } else {
+            Memory{size, space: vec![0; size]}
+        }
     }
     
     pub fn read(&self, pc: u32) -> Result<u32, RiscVError> {
         let idx = pc as usize;
 
-        if idx >= self.size {
+        if idx >= self.size - 3  {
             return Err(RiscVError::OutOfBoundMemory);
         }
 
@@ -25,15 +29,13 @@ impl Memory {
             read_data |= self.space[idx + 3 - i] as u32;
         }    
 
-        println!("{:08x}", read_data);
-
         Ok(read_data)
     } 
 
     pub fn write(&mut self, pc: u32, data: u32) -> Result<(), RiscVError> {
         let idx = pc as usize;
 
-        if idx >= self.size {
+        if idx >= self.size - 3 {
             return Err(RiscVError::OutOfBoundMemory);
         }
 

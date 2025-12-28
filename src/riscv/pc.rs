@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub struct PC {
     pointer: u32,
 }
@@ -8,7 +9,7 @@ impl PC {
     }
 
     pub fn step(&mut self) {
-        self.pointer += 32;
+        self.pointer += 4;
     }
 
     pub fn get(&self) -> u32 {

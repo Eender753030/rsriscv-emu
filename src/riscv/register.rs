@@ -1,5 +1,6 @@
 use crate::utils::exception::RiscVError;
 
+#[derive(Debug)]
 pub struct Registers {
     registers: [u32; 32],
 } 
@@ -34,9 +35,5 @@ impl Registers {
 
 
         Ok(())
-    }
-
-    pub fn print(&self) {
-        println!("{:?}", self.registers);
     }
 }

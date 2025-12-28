@@ -22,12 +22,16 @@ impl RiscV {
     }
     
     pub fn cycle(&mut self) -> Result<(), RiscVError>{
-        let instruction = self.fetch()?;
-
-        let type_data = self.decode(instruction)?;
-        
-        self.execute(type_data)?;
-        Ok(())
+        loop {
+            let instruction = self.fetch()?;
+            if instruction == 0 {
+                break Ok(());
+            }
+            
+            let type_data = self.decode(instruction)?;
+            
+            self.execute(type_data)?;
+        }
     }
 
     fn fetch(&self) -> Result<u32, RiscVError> {
@@ -58,7 +62,7 @@ impl RiscV {
             Types::IType {imm, rs1, rd, action} => {
                 match action {
                     Action::ADDI => {
-                        self.registers.write(rd, self.registers.read(rs1)? + imm as u32)?; 
+                        self.registers.write(rd, self.registers.read(rs1)?.wrapping_add(imm as u32))?; 
                     }
                 }
             }
@@ -68,11 +72,11 @@ impl RiscV {
         Ok(())
     }
 
-    pub fn load_code(&mut self, code: u32) -> Result<(), RiscVError>{
+    pub fn load_code(&mut self, code: u32) -> Result<(), RiscVError>{ 
         self.memory.write(self.pc.get(), code)
     }
 
-    pub fn print_registers(&self) {
-        self.registers.print();
+    pub fn print(&self) {
+        println!("{:?}\n{:?}", self.registers, self.pc);
     }
 }

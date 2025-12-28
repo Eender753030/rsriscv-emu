@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub enum Action {
     ADDI,
 }
@@ -5,6 +6,8 @@ pub enum Action {
 pub enum TypeKind {
     IType
 }
+
+#[derive(Debug)]
 pub enum Types {
     IType {imm: i32, rs1: usize, rd: usize, action: Action},
 }

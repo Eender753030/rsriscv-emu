@@ -8,10 +8,10 @@ fn main() {
     if let Err(e) = machine.load_code(code) {
         eprintln!("Error: {}", e);
     }
-    
+
     if let Err(e) = machine.cycle() {
         eprintln!("Error: {}", e);
     }
 
-    machine.print_registers();
+    machine.print();
 }
