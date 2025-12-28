@@ -6,7 +6,7 @@ mod opcode;
 use register::Registers;
 use pc::PC;
 use memory::Memory;
-use crate::{riscv::opcode::{Action, TypeKind, Types}, utils::exception::RiscVError};
+use crate::{riscv::opcode::{TypeKind, Types}, utils::exception::RiscVError};
 
 pub struct RiscV {
     registers: Registers,
@@ -40,17 +40,10 @@ impl RiscV {
 
     fn decode(&self, instruction: u32) -> Result<Types, RiscVError>{
         match instruction & 0x7f {
-            0x13 => {
-                match instruction & 0x7000 {
-                    0x0 => {
-                        Ok(opcode::Types::parse(TypeKind::IType, instruction, opcode::Action::ADDI))
-                    }
-                    not_exist_func => {
-                        Err(RiscVError::NotImplementedFunc(0x13, not_exist_func))
-                    }
-                }
-            }
-
+            0x13 => {  
+                    Ok(opcode::Types::parse(TypeKind::IType, instruction, ((instruction & 0x7000) >> 12) as u16))           
+            },
+            
             not_exist_opcode => {
                 Err(RiscVError::NotImplementedOpCode(not_exist_opcode))
             }
@@ -59,10 +52,15 @@ impl RiscV {
 
     fn execute(&mut self, op_type: Types) -> Result<(), RiscVError> {
         match op_type {
-            Types::IType {imm, rs1, rd, action} => {
-                match action {
-                    Action::ADDI => {
+            Types::IType {imm, rs1, rd, func} => {
+                match func {
+                    // ADDI
+                    0x0 => { 
                         self.registers.write(rd, self.registers.read(rs1)?.wrapping_add(imm as u32))?; 
+                    },
+
+                    not_exist_func => {
+                        return Err(RiscVError::NotImplementedFunc(0x13, not_exist_func))
                     }
                 }
             }
