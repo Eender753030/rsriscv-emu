@@ -12,17 +12,23 @@ use crate::{riscv::opcode::{TypeKind, Types}, utils::exception::RiscVError};
 pub struct RiscV {
     registers: Registers,
     pc: PC,
-    memory: Memory,
+    ins_memory: Memory,
+    data_memory: Memory,
 }
 
 impl RiscV {
     pub fn new() -> Self {
-        RiscV{registers: Registers::new(),
+        RiscV {
+            registers: Registers::new(),
               pc: PC::new(),
-              memory: Memory::new(1024)}
+            ins_memory: Memory::new(128),
+            data_memory: Memory::new(512),
+        }
     }
     
-    pub fn cycle(&mut self) -> Result<(), RiscVError>{
+    pub fn cycle(&mut self, code: &[u8]) -> Result<(), RiscVError>{
+        self.ins_memory.load(0, code)?;
+
         loop {
             let instruction = self.fetch()?;
             if instruction == 0 {
@@ -36,7 +42,7 @@ impl RiscV {
     }
 
     fn fetch(&self) -> Result<u32, RiscVError> {
-        self.memory.read(self.pc.get())
+        self.ins_memory.fetch(self.pc.get())
     }
 
     fn decode(&self, instruction: u32) -> Result<Types, RiscVError>{
@@ -69,10 +75,6 @@ impl RiscV {
 
         self.pc.step();
         Ok(())
-    }
-
-    pub fn load_code(&mut self, code: Vec<u8>) -> Result<(), RiscVError>{ 
-        self.memory.load(0, code)
     }
 
     pub fn print(&self) {
