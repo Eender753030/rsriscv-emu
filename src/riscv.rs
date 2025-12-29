@@ -114,14 +114,14 @@ impl RiscV {
                     self.data_memory.read(
                         self.registers.read(rs1)?.wrapping_add_signed(imm),
                         match funct3 {
-                            0x0 | 0x4 => 0, // LB | LBU
-                            0x1 | 0x5 => 1, // LH | LHU
-                            0x2 => 3, // LW
+                            0x0 | 0x4 => 1, // LB | LBU
+                            0x1 | 0x5 => 2, // LH | LHU
+                            0x2 => 4, // LW
                             not_exist_funct => return Err(RiscVError::NotImplementedFunc(0x03, not_exist_funct))
                         },
                         match funct3 {
-                            0x0 | 0x1 | 0x2 => true, // LB | LH | LW
-                            0x4 | 0x5 => false, // LBU | LHU
+                            0x0 | 0x1 => true, // LB | LH | LW
+                            0x4 | 0x5 | 0x2=> false, // LBU | LHU
                             not_exist_funct => return Err(RiscVError::NotImplementedFunc(0x03, not_exist_funct))
                         },
                     )?
@@ -187,9 +187,9 @@ impl RiscV {
                     self.registers.read(rs1)?.wrapping_add_signed(imm), 
                     self.registers.read(rs2)?, 
                     match funct3 {
-                        0x0 => 0, // SB
-                        0x1 => 1, // SH
-                        0x2 => 3, // SW
+                        0x0 => 1, // SB
+                        0x1 => 2, // SH
+                        0x2 => 4, // SW
                         not_exist_funct => return Err(RiscVError::NotImplementedFunc(0x23, not_exist_funct))
                     }
                 )?;

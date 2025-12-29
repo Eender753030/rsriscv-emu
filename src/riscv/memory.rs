@@ -22,31 +22,23 @@ impl Memory {
 
         let idx = pc as usize;
 
-        if idx >= self.size - 3  {
+        if idx + 4 > self.size {
             return Err(RiscVError::OutOfBoundMemory);
         }
 
-        let mut read_data:u32 = self.space[idx + 3] as u32;
-
-
-        for i in 1..4 {
-            read_data <<= 8;
-            read_data |= self.space[idx + 3 - i] as u32;
-        }    
-
-        Ok(read_data)
+        let slice = &self.space[idx..idx+4];
+        Ok(u32::from_le_bytes(slice.try_into().unwrap()))
     } 
 
     pub fn load(&mut self, start_address:usize, data_container: &[u8]) -> Result<(), RiscVError> {
-        for (i, &data) in data_container.iter().enumerate() {
-            let idx = start_address + i;
-            if idx > self.size {
-                return Err(RiscVError::OutOfBoundMemory);
-            }
-            
-            self.space[start_address + i] = data;
+        let end_address = start_address + data_container.len();
+
+        if end_address > self.size {
+            return Err(RiscVError::OutOfBoundMemory);
         }
-  
+
+        self.space[start_address..end_address].copy_from_slice(data_container);
+ 
         Ok(())
     } 
 
@@ -56,23 +48,17 @@ impl Memory {
         if idx + bytes_amount >= self.size  {
             return Err(RiscVError::OutOfBoundMemory);
         }
-        Ok(
-            if is_signed {
-                let mut read_data = self.space[idx + bytes_amount] as i8 as i32;
-                for i in 1..=bytes_amount {
-                    read_data <<= 8;
-                    read_data |= (self.space[idx + bytes_amount - i] as u32) as i32;
-                }    
-                read_data as u32
-            } else {
-                let mut read_data = self.space[idx + bytes_amount] as u32;
-                for i in 1..=bytes_amount {
-                    read_data <<= 8;
-                    read_data |= self.space[idx + bytes_amount - i] as u32;
-                }  
-                read_data  
-            }
-        )
+
+        let slice = &self.space[idx..idx+bytes_amount];
+        let mut four_bytes = [0_u8; 4];
+
+        four_bytes[..bytes_amount].copy_from_slice(slice);
+
+        if is_signed && (slice.last().unwrap() & 0x80 != 0) {
+            four_bytes[bytes_amount..].fill(0xff);
+        }
+
+        Ok(u32::from_le_bytes(four_bytes))
     } 
 
     pub fn write(&mut self, address: u32, data: u32, bytes_amount: usize) -> Result<(), RiscVError> {
@@ -82,13 +68,9 @@ impl Memory {
             return Err(RiscVError::OutOfBoundMemory);
         }
 
-        let mut write_data = data;
-
-        self.space[idx] = (write_data & 0xff) as u8;
-        for i in 1..=bytes_amount {
-            write_data >>= 8;
-            self.space[idx + i] = (write_data & 0xff) as u8;
-        }
+        let write_data = data.to_le_bytes();
+         
+        self.space[idx..idx+bytes_amount].copy_from_slice(&write_data[0..bytes_amount]);
         
         Ok(())
     } 
