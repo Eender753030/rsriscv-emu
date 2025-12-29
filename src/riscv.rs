@@ -86,7 +86,60 @@ impl RiscV {
                     )?
                 )?;      
             },
+
+            Instruction::Rtype {rd, rs1, rs2, funct3, funct7} => {
+                self.registers.write(
+                    rd,
+                    match funct3 {
+                        // ADD | SUB
                     0x0 => { 
+                            match funct7 {
+                                // ADD
+                                0x00 => self.registers.read(rs1)?.wrapping_add(self.registers.read(rs2)?),
+                                // SUB
+                                0x20 => self.registers.read(rs1)?.wrapping_sub(self.registers.read(rs2)?),
+
+                                not_exist_funct => return Err(RiscVError::NotImplementedFunc(0x33, not_exist_funct))
+                            }                  
+                        },
+                        // SLL
+                        0x1 => self.registers.read(rs1)? << (self.registers.read(rs2)? & 0x1f),
+                        // SLT
+                        0x2 => {
+                            match (self.registers.read(rs1)? as i32) < (self.registers.read(rs2)? as i32) {
+                                true => 1,
+                                false => 0
+                            }
+                        },
+                        // SLTU
+                        0x3 => {
+                            match self.registers.read(rs1)? < self.registers.read(rs2)? {
+                                true => 1,
+                                false => 0
+                            }
+                        },
+                        // XOR
+                        0x4 => self.registers.read(rs1)? ^ self.registers.read(rs2)?,
+                        // SRL | SRA
+                        0x5 => {
+                            match funct7 {
+                                // SRL
+                                0x00 => self.registers.read(rs1)? >> (self.registers.read(rs2)? & 0x1f),
+                                // SRA
+                                0x20 => (self.registers.read(rs1)? as i32).shr(self.registers.read(rs2)? & 0x1f) as u32,
+
+                                not_exist_funct => return Err(RiscVError::NotImplementedFunc(0x33, not_exist_funct))
+                            }   
+                        },
+                        // OR
+                        0x6 => self.registers.read(rs1)? | self.registers.read(rs2)?,
+                        // AND
+                        0x7 => self.registers.read(rs1)? & self.registers.read(rs2)?,
+                        
+                        not_exist_funct => return Err(RiscVError::NotImplementedFunc(0x33, not_exist_funct))
+                    }
+                )?;
+            },
 
             Instruction::Stype {rs1, rs2, imm, funct3} => {
                 self.data_memory.write(
