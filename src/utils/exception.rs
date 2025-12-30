@@ -16,4 +16,10 @@ pub enum RiscVError {
 
     #[error("OpCode: Not implemented func 0x{0:x} from: 0x{1:x}")]
     NotImplementedFunc(u32, u8),
+
+    #[error("System Call: Not implemented system call: {0}")]
+    NotImplementedSysCall(u32),
+
+    #[error("Exit with code {0}")]
+    SystemExit(u32),
 }

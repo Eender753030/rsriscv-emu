@@ -4,6 +4,7 @@ pub enum InstructionKind {
     Itype,
     ItypeLoad,
     ItypeJump,
+    ItypeSys,
     Rtype,
     Stype,
     Btype,
@@ -17,6 +18,7 @@ pub enum Instruction {
     Itype {rd: usize, rs1: usize, imm: i32, funct3: u8},
     ItypeLoad {rd: usize, rs1: usize, imm: i32, funct3: u8},
     ItypeJump {rd: usize, rs1: usize, imm: i32},
+    ItypeSys {imm: i32},
     Rtype {rd: usize, rs1: usize, rs2: usize, funct3: u8, funct7: u8},
     Stype {rs1: usize, rs2: usize, imm: i32, funct3: u8},
     Btype {rs1: usize, rs2: usize, imm: i32, funct3: u8},
@@ -54,6 +56,11 @@ impl Instruction {
                 }
             },
 
+            InstructionKind::ItypeSys => {
+                Instruction::ItypeSys {
+                    imm: ((ins & 0xfff00000) as i32) >> 20
+                }
+            }
 
             InstructionKind::Rtype => {
                 Instruction::Rtype {
