@@ -1,3 +1,4 @@
+use risc_v_emulator::RiscVError;
 use risc_v_emulator::riscv::RiscV;
 use risc_v_emulator::riscv::loader;
 
@@ -19,7 +20,10 @@ fn main() {
         match loader::read_binary(&arg) {
             Ok(code) => {
                 if let Err(e) = machine.cycle(&code) {
-                    eprintln!("Error: {}", e);
+                    match e {
+                        RiscVError::SystemExit(_) => println!("{}", e),
+                        _ => eprintln!("Error: {}", e)
+                    }
                 }
             },
             Err(e) => {

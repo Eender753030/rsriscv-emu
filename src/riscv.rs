@@ -67,6 +67,8 @@ impl RiscV {
 
             0x6f => Ok(Instruction::parse(InstructionKind::Jtype, instruction)),
 
+            0x73 => Ok(Instruction::parse(InstructionKind::ItypeSys, instruction)),
+
             not_exist_opcode => Err(RiscVError::NotImplementedOpCode(not_exist_opcode))
         }
     }
@@ -242,6 +244,36 @@ impl RiscV {
                 self.registers.write(rd, self.pc.get() + 4)?;
                 self.pc.directed_addressing(self.registers.read(rs1)?.wrapping_add_signed(imm) & !1);
                 return Ok(());
+            },
+
+            Instruction::ItypeSys {imm} => {
+                if imm == 0 {
+                    let sys_call_id = self.registers.read(17)?;
+                    match sys_call_id {
+                        64 => { // System write (print)
+                            let fd = self.registers.read(10)?;
+                            let ptr = self.registers.read(11)? as usize;
+                            let len = self.registers.read(12)? as usize;
+                            
+                            if fd == 1 { // stdout 
+                                let slice = self.data_memory.read_batch(ptr, len)?;
+                                let s = String::from_utf8_lossy(slice);
+                                print!("{}", s);
+                            }
+                            
+                        },
+
+                        93 => {
+                            let exit_code = self.registers.read(10)?;
+
+                            return Err(RiscVError::SystemExit(exit_code));
+                        },
+
+                        _ => {
+                            return Err(RiscVError::NotImplementedSysCall(sys_call_id));
+                        }
+                    }
+                }
             }
         }
 
@@ -256,6 +288,6 @@ impl RiscV {
 
 impl Default for RiscV {
     fn default() -> Self {
-        Self::new(256)
+        Self::new(512)
     }
 }

@@ -59,6 +59,14 @@ impl Memory {
         }
 
         Ok(u32::from_le_bytes(four_bytes))
+    }
+
+    pub fn read_batch(&self, address: usize, bytes_amount: usize) -> Result<&[u8], RiscVError> {
+        if address + bytes_amount >= self.size  {
+            Err(RiscVError::OutOfBoundMemory)
+        } else {
+            Ok(&self.space[address..address+bytes_amount])
+        }
     } 
 
     pub fn write(&mut self, address: u32, data: u32, bytes_amount: usize) -> Result<(), RiscVError> {
