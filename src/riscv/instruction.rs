@@ -7,6 +7,8 @@ pub enum InstructionKind {
     Rtype,
     Stype,
     Btype,
+    UtypeLUI,
+    UtypeAUIPC,
     Jtype,
 }
 
@@ -18,6 +20,8 @@ pub enum Instruction {
     Rtype {rd: usize, rs1: usize, rs2: usize, funct3: u8, funct7: u8},
     Stype {rs1: usize, rs2: usize, imm: i32, funct3: u8},
     Btype {rs1: usize, rs2: usize, imm: i32, funct3: u8},
+    UtypeLUI {rd: usize, imm: u32},
+    UtypeAUIPC {rd: usize, imm: u32},
     Jtype {rd: usize, imm: i32},
 }
 
@@ -78,6 +82,20 @@ impl Instruction {
                     funct3: ((ins >> 12) & 0x7) as u8
                 }
             },
+
+            InstructionKind::UtypeLUI => {
+                Instruction::UtypeLUI { 
+                    rd: ((ins >> 7) & 0x1f) as usize, 
+                    imm: ins & 0xfffff000
+                }
+            },
+
+            InstructionKind::UtypeAUIPC => {
+                Instruction::UtypeAUIPC { 
+                    rd: ((ins >> 7) & 0x1f) as usize, 
+                    imm: ins & 0xfffff000
+                }
+            }
 
             InstructionKind::Jtype => {
                 Instruction::Jtype { 

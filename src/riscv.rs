@@ -53,9 +53,13 @@ impl RiscV {
             
             0x13 => Ok(Instruction::parse(InstructionKind::Itype, instruction)),
             
+            0x17 => Ok(Instruction::parse(InstructionKind::UtypeAUIPC, instruction)),
+
             0x23 => Ok(Instruction::parse(InstructionKind::Stype, instruction)),
 
             0x33 => Ok(Instruction::parse(InstructionKind::Rtype, instruction)),
+
+            0x37 => Ok(Instruction::parse(InstructionKind::UtypeLUI, instruction)),
 
             0x63 => Ok(Instruction::parse(InstructionKind::Btype, instruction)),
 
@@ -219,6 +223,14 @@ impl RiscV {
                     return Ok(());
                 }
             }
+
+            Instruction::UtypeLUI {rd, imm} => {
+                self.registers.write(rd, imm)?;
+            },
+
+            Instruction::UtypeAUIPC {rd, imm} => {
+                self.registers.write(rd, self.pc.get() + imm)?;
+            },
 
             Instruction::Jtype {rd, imm} => {
                 self.registers.write(rd, self.pc.get() + 4)?;
