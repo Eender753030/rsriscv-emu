@@ -57,6 +57,12 @@ impl RiscV {
 
             0x33 => Ok(Instruction::parse(InstructionKind::Rtype, instruction)),
 
+            0x63 => Ok(Instruction::parse(InstructionKind::Btype, instruction)),
+
+            0x67 => Ok(Instruction::parse(InstructionKind::ItypeJump, instruction)),
+
+            0x6f => Ok(Instruction::parse(InstructionKind::Jtype, instruction)),
+
             not_exist_opcode => Err(RiscVError::NotImplementedOpCode(not_exist_opcode))
         }
     }
@@ -121,7 +127,7 @@ impl RiscV {
                         },
                         match funct3 {
                             0x0 | 0x1 => true, // LB | LH | LW
-                            0x4 | 0x5 | 0x2=> false, // LBU | LHU
+                            0x4 | 0x5 | 0x2 => false, // LBU | LHU
                             not_exist_funct => return Err(RiscVError::NotImplementedFunc(0x03, not_exist_funct))
                         },
                     )?
@@ -193,6 +199,37 @@ impl RiscV {
                         not_exist_funct => return Err(RiscVError::NotImplementedFunc(0x23, not_exist_funct))
                     }
                 )?;
+            },
+
+            Instruction::Btype {rs1, rs2, imm, funct3} => {
+                let rs1_data = self.registers.read(rs1)?;
+                let rs2_data = self.registers.read(rs2)?;
+                let branch_result = match funct3 {
+                    0x0 => rs1_data == rs2_data, // BEQ
+                    0x1 => rs1_data != rs2_data, // BNE
+                    0x4 => (rs1_data as i32) < (rs2_data as i32), // BLT (Signed)
+                    0x5 => (rs1_data as i32) >= (rs2_data as i32), // BGE (Signed)
+                    0x6 => rs1_data < rs2_data, // BLTU
+                    0x7 => rs1_data >= rs2_data, // BGEU
+                    not_exist_funct => return Err(RiscVError::NotImplementedFunc(0x23, not_exist_funct))
+                };
+
+                if branch_result {
+                    self.pc.related_addressing(imm);
+                    return Ok(());
+                }
+            }
+
+            Instruction::Jtype {rd, imm} => {
+                self.registers.write(rd, self.pc.get() + 4)?;
+                self.pc.related_addressing(imm);
+                return Ok(());
+            },
+
+            Instruction::ItypeJump {rd, rs1, imm} => {
+                self.registers.write(rd, self.pc.get() + 4)?;
+                self.pc.directed_addressing(self.registers.read(rs1)?.wrapping_add_signed(imm) & !1);
+                return Ok(());
             }
         }
 
