@@ -11,8 +11,7 @@
     - **Memory View**: Inspect raw data memory dumps with hex formatting.
 - **Multiple Execution Modes**:
     - **Observation Mode**: Browse memory/registers without executing code.
-    - **Debug Mode (Stay)**: Step-by-step execution (`S`) with Reset (`R`) capability.
-    - **Running Mode**: Execute the full binary until completion or interrupt.
+    - **Emulate Mode**: Step-by-step execution (`S`), Execute the full binary until completion or interrupt (`P`), and Reset (`R`) capability.
 
 ## Demo
 ![RsRisc-V Demo](./assets/demo.gif)
