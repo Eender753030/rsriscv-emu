@@ -19,8 +19,8 @@ use key::KeyControl;
 use state::{EmuState, EmuMode};
 
 const HEADER: &str = "RsRisc-V Emulator v0.0.1";
-const OBSERVATION_HINT_MESSAGE: &str = "Q: Leave    TAB: Change mode    Up/Down: Scroll window    Left/Right: Change selected window";
-const EMULATE_HINT_MESSAGE: &str = "Q: Leave   TAB: Change mode    S: One step    P: Run to end    R: Reset";
+const OBSERVATION_HINT_MESSAGE: &str = "Q: Leave    TAB: Switch mode    Up/Down: Scroll    Left/Right: Change panel";
+const EMULATE_HINT_MESSAGE: &str = "Q: Leave   TAB: Change mode    S: Single step    P: Run to end    R: Reset";
 
 pub fn tui_loop(emu_state: &mut EmuState, machine: &mut RiscV) -> Result<()> {
     let mut emu_terminal = terminal::EmuTerminal::init_terminal()?;
