@@ -1,3 +1,4 @@
+![Language](https://img.shields.io/badge/language-Rust-orange.svg) ![License](https://img.shields.io/badge/license-MIT-blue.svg) ![Backend](https://img.shields.io/badge/UI-Ratatui-green.svg)
 # RsRisc-V Emu: Interactive RV32I Emulator in Rust
 
 [RsRisc-V Asm here](https://github.com/Eender753030/RsRiscV_asm)
