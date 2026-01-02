@@ -2,14 +2,14 @@ mod register;
 mod pc;
 mod memory;
 mod instruction;
+mod alu;
 pub mod loader;
-
-use std::ops::Shr;
 
 use register::Registers;
 use pc::PC;
 use memory::Memory;
-use crate::{riscv::instruction::Instruction, utils::exception::RiscVError};
+use alu::ALU;
+use crate::{riscv::instruction::{Instruction, OpCode}, utils::exception::RiscVError};
 
 pub trait Reset {
     fn reset(&mut self);   
@@ -20,7 +20,7 @@ pub trait Dump<T> {
 }
 
 pub struct RiscV {
-    registers: Registers,
+    reg: Registers,
     pc: PC,
     ins_memory: Memory,
     data_memory: Memory,
@@ -80,14 +80,14 @@ impl RiscV {
             Instruction::ItypeLoad {rd, rs1, imm, funct3} => {
                 let addr = self.reg.read(rs1)?.wrapping_add_signed(imm);
                 let bytes_amount = match funct3 {
-                            0x0 | 0x4 => 1, // LB | LBU
-                            0x1 | 0x5 => 2, // LH | LHU
-                            0x2 => 4, // LW
+                    0x0 | 0x4 => 1, // LB | LBU
+                    0x1 | 0x5 => 2, // LH | LHU
+                    0x2 => 4, // LW
                     not_exist_funct => return Err(RiscVError::NotImplementedFunc(OpCode::ITYPE_LOAD, not_exist_funct))
                 };
                 let is_signed = match funct3 {
-                            0x0 | 0x1 => true, // LB | LH | LW
-                            0x4 | 0x5 | 0x2 => false, // LBU | LHU
+                    0x0 | 0x1 => true, // LB | LH | LW
+                    0x4 | 0x5 | 0x2 => false, // LBU | LHU
                     not_exist_funct => return Err(RiscVError::NotImplementedFunc(OpCode::ITYPE_LOAD, not_exist_funct))
                 };
                 let data = self.data_memory.read(addr, bytes_amount, is_signed)?;
@@ -104,9 +104,9 @@ impl RiscV {
                 let source = self.reg.read(rs2)?;
                 let addr = self.reg.read(rs1)?.wrapping_add_signed(imm);
                 let bytes_amount = match funct3 {
-                        0x0 => 1, // SB
-                        0x1 => 2, // SH
-                        0x2 => 4, // SW
+                    0x0 => 1, // SB
+                    0x1 => 2, // SH
+                    0x2 => 4, // SW
                     not_exist_funct => return Err(RiscVError::NotImplementedFunc(OpCode::STYPE, not_exist_funct))
                 };
                 self.data_memory.write(addr, source, bytes_amount)?;
@@ -186,6 +186,18 @@ impl RiscV {
         )
     }
 
+    pub fn inspect_ins(&mut self, address: u32) -> Option<Instruction> {
+        match self.ins_memory.fetch(address) {
+            Ok(bytes) => {
+                match bytes.try_into() {
+                    Ok(ins) => Some(ins),
+                    Err(_) => None
+                }
+            }   
+            Err(_) => None
+        }
+    }
+
     pub fn dump_ins(&mut self) -> Result<Vec<String>, RiscVError> {
         let mut ins_list = vec![];
         loop { 
@@ -207,7 +219,7 @@ impl RiscV {
 impl Default for RiscV {
     fn default() -> Self {
         RiscV {
-            registers: Registers::default(),
+            reg: Registers::default(),
             pc: PC::default(),
             ins_memory: Memory::new(512),
             data_memory: Memory::default(),
@@ -217,7 +229,7 @@ impl Default for RiscV {
 
 impl Reset for RiscV {
     fn reset(&mut self) {
-        self.registers.reset();
+        self.reg.reset();
         self.data_memory.reset();
         self.pc.reset();
     }
@@ -225,6 +237,6 @@ impl Reset for RiscV {
 
 impl std::fmt::Debug for RiscV {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Registers {{ {:?} }}\nPC: {}\nMemory: {:?}", self.registers.dump(), self.pc.get(), self.data_memory.dump())
+        write!(f, "Registers {{ {:?} }}\nPC: {}\nMemory: {:?}", self.reg.dump(), self.pc.get(), self.data_memory.dump())
     }
 }

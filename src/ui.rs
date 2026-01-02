@@ -13,8 +13,8 @@ use anyhow::Result;
 
 use std::time::Duration;
 
-use crate::utils::exception::RiscVError;
-use crate::riscv::{RiscV, Reset};
+use crate::{ui::state::Selected, utils::exception::RiscVError};
+use crate::riscv::Reset;
 use key::KeyControl;
 use state::{EmuState, EmuMode};
 
@@ -22,7 +22,11 @@ const HEADER: &str = "RsRisc-V Emulator v0.0.1";
 const OBSERVATION_HINT_MESSAGE: &str = "Q: Leave    TAB: Switch mode    Up/Down: Scroll    Left/Right: Change panel";
 const EMULATE_HINT_MESSAGE: &str = "Q: Leave   TAB: Change mode    S: Single step    P: Run to end    R: Reset";
 
-pub fn tui_loop(emu_state: &mut EmuState, machine: &mut RiscV) -> Result<()> {
+// const BERKELEY_BLUE: (u8, u8, u8) = (0, 50, 98);
+// const CALIFORNIA_GOLD: (u8, u8, u8) = (253, 181, 21);
+
+
+pub fn tui_loop(emu_state: &mut EmuState) -> Result<()> {
     let mut emu_terminal = terminal::EmuTerminal::new()?;
 
     loop {
@@ -51,18 +55,18 @@ pub fn tui_loop(emu_state: &mut EmuState, machine: &mut RiscV) -> Result<()> {
                         emu_state.mode = EmuMode::Observation;
                     }
                     KeyControl::Reset => {
-                        machine.reset();
-                        emu_state.update_data(machine.dump_data());
+                        emu_state.emu.reset();
+                        emu_state.update_data(emu_state.emu.dump_data());
                         emu_state.update_ins_selected();
                     },
                     KeyControl::Step => {
-                        if let Err(e) = machine.step() {
+                        if let Err(e) = emu_state.emu.step() {
                             match e {
                                 RiscVError::SystemExit(_) | RiscVError::EndOfInstruction => {},
                                 _ => return Err(anyhow::Error::new(e))
                             }
                         }
-                        emu_state.update_data(machine.dump_data());
+                        emu_state.update_data(emu_state.emu.dump_data());
                         emu_state.update_ins_selected();
                     },
                     KeyControl::RunToEnd => emu_state.mode = EmuMode::Running,
@@ -70,13 +74,13 @@ pub fn tui_loop(emu_state: &mut EmuState, machine: &mut RiscV) -> Result<()> {
                 }
             },
             EmuMode::Running => {
-                if let Err(e) = machine.step() {
+                if let Err(e) = emu_state.emu.step() {
                     match e {
                         RiscVError::SystemExit(_) | RiscVError::EndOfInstruction => emu_state.mode = EmuMode::Stay,
                         _ => return Err(anyhow::Error::new(e))
                     }
                 }
-                emu_state.update_data(machine.dump_data());
+                emu_state.update_data(emu_state.emu.dump_data());
                 emu_state.update_ins_selected();
             }
         }
@@ -106,6 +110,7 @@ fn render_header(f: &mut Frame, area: Rect, emu_state: &EmuState) {
     
     let paragraph = Paragraph::new(message)
         .block(Block::bordered().title(HEADER))
+        .style(Style::default().bg(Color::Rgb(0, 50, 98)).fg(Color::Rgb(253, 181, 21)))
         .alignment(Alignment::Center);
 
     f.render_widget(paragraph, area);
@@ -114,6 +119,7 @@ fn render_header(f: &mut Frame, area: Rect, emu_state: &EmuState) {
 fn render_paragraph(f: &mut Frame, area: Rect, message: &str) {
     let paragraph = Paragraph::new(message)
         .block(Block::bordered())
+        .style(Style::default().bg(Color::Rgb(0, 50, 98)).fg(Color::Rgb(253, 181, 21)))
         .alignment(Alignment::Center);
 
     f.render_widget(paragraph, area);
@@ -132,13 +138,25 @@ fn render_content(f: &mut Frame, area: Rect, emu_state: &mut EmuState) {
 }
 
 fn render_ins(f: &mut Frame, area: Rect, emu_state: &mut EmuState) {
-    let items: Vec<ListItem> = emu_state.ins.list.iter().enumerate().map(|(i, ins)| {
-        ListItem::new(format!("{:>4}. {}", i + 1, ins))
-    }).collect();
+    let mut items = vec![];
+    for i in (0..).step_by(4) {
+        match emu_state.emu.inspect_ins(i) {
+            Some(ins) => items.push(ListItem::new(format!("{:>4}. {}", i / 4 + 1, ins))),
+            None => {
+                break;
+            }
+        }
+    }
+
+    let highlight_color = match &emu_state.selected {
+        Selected::Ins => (Color::Rgb(242, 242, 242), Color::Rgb(0, 50, 98)),
+        _ => (Color::Rgb(0, 50, 98), Color::Rgb(253, 181, 21))
+    };
 
     let list = List::new(items)
         .block(Block::bordered().title("Instruction"))
-        .highlight_style(Style::default().fg(Color::Black).bg(Color::White));
+        .style(Style::default().bg(Color::Rgb(0, 50, 98)).fg(Color::Rgb(253, 181, 21)))
+        .highlight_style(Style::default().bg(highlight_color.0).fg(highlight_color.1));
 
     f.render_stateful_widget(list, area, &mut emu_state.ins.list_state);
 }
@@ -148,9 +166,15 @@ fn render_reg(f: &mut Frame, area: Rect, emu_state: &mut EmuState) {
         ListItem::new(format!(" x{:<2}: {}", i, data))
     }).collect();
 
+    let highlight_color = match (&emu_state.selected, &emu_state.mode) {
+        (Selected::Reg, EmuMode::Observation) => (Color::Rgb(242, 242, 242), Color::Rgb(0, 50, 98)),
+        _ => (Color::Rgb(0, 50, 98), Color::Rgb(253, 181, 21))
+    };
+
     let list = List::new(items)
         .block(Block::bordered().title("Register"))
-        .highlight_style(Style::default().fg(Color::Black).bg(Color::White));
+        .style(Style::default().bg(Color::Rgb(0, 50, 98)).fg(Color::Rgb(253, 181, 21)))
+        .highlight_style(Style::default().bg(highlight_color.0).fg(highlight_color.1));
 
     f.render_stateful_widget(list, area, &mut emu_state.reg.list_state);
 }
@@ -160,9 +184,15 @@ fn render_mem(f: &mut Frame, area: Rect, emu_state: &mut EmuState) {
         ListItem::new(format!(" 0x{:06x}: {:02x?}", i * 4, data))
     }).collect();
 
+    let highlight_color = match (&emu_state.selected, &emu_state.mode) {
+        (Selected::Mem, EmuMode::Observation) => (Color::Rgb(242, 242, 242), Color::Rgb(0, 50, 98)),
+        _ => (Color::Rgb(0, 50, 98), Color::Rgb(253, 181, 21))
+    };
+
     let list = List::new(items)
         .block(Block::bordered().title("Memory"))
-        .highlight_style(Style::default().fg(Color::Black).bg(Color::White));
+        .style(Style::default().bg(Color::Rgb(0, 50, 98)).fg(Color::Rgb(253, 181, 21)))
+        .highlight_style(Style::default().bg(highlight_color.0).fg(highlight_color.1));
 
     f.render_stateful_widget(list, area, &mut emu_state.mem.list_state);
 }
