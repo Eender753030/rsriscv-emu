@@ -3,14 +3,13 @@ mod pc;
 mod memory;
 mod instruction;
 pub mod loader;
-pub mod parser;
 
 use std::ops::Shr;
 
 use register::Registers;
 use pc::PC;
 use memory::Memory;
-use crate::{riscv::instruction::{Instruction, InstructionKind}, utils::exception::RiscVError};
+use crate::{riscv::instruction::Instruction, utils::exception::RiscVError};
 
 pub struct RiscV {
     registers: Registers,
@@ -60,30 +59,8 @@ impl RiscV {
         self.ins_memory.fetch(self.pc.get())
     }
 
-    fn decode(&self, instruction: u32) -> Result<Instruction, RiscVError>{
-        match instruction & 0x7f {
-            0x03 => Ok(Instruction::parse(InstructionKind::ItypeLoad, instruction)),
-            
-            0x13 => Ok(Instruction::parse(InstructionKind::Itype, instruction)),
-            
-            0x17 => Ok(Instruction::parse(InstructionKind::UtypeAUIPC, instruction)),
-
-            0x23 => Ok(Instruction::parse(InstructionKind::Stype, instruction)),
-
-            0x33 => Ok(Instruction::parse(InstructionKind::Rtype, instruction)),
-
-            0x37 => Ok(Instruction::parse(InstructionKind::UtypeLUI, instruction)),
-
-            0x63 => Ok(Instruction::parse(InstructionKind::Btype, instruction)),
-
-            0x67 => Ok(Instruction::parse(InstructionKind::ItypeJump, instruction)),
-
-            0x6f => Ok(Instruction::parse(InstructionKind::Jtype, instruction)),
-
-            0x73 => Ok(Instruction::parse(InstructionKind::ItypeSys, instruction)),
-
-            not_exist_opcode => Err(RiscVError::NotImplementedOpCode(not_exist_opcode))
-        }
+    fn decode(&self, instruction: u32) -> Result<Instruction, RiscVError> {
+        instruction.try_into()
     }
 
     fn execute(&mut self, op_type: Instruction) -> Result<(), RiscVError> {
@@ -304,12 +281,23 @@ impl RiscV {
         println!("Registers {{ {:?} }}\n{:?}\n{:?}", self.registers.dump_signed_vec(), self.pc, self.data_memory.dump());
     }
 
-    pub fn dump(&self) -> (Vec<i32>, Vec<[u8; 4]>, u32) {
+    pub fn dump_data(&self) -> (Vec<i32>, Vec<[u8; 4]>, u32) {
         (
             self.registers.dump_signed_vec(),
             self.data_memory.dump(),
             self.pc.get()
         )
+    }
+
+    pub fn dump_ins(&self) -> Result<Vec<String>, RiscVError> {
+        let mut ins_list = vec![];
+        loop { 
+            match self.fetch() {
+            Ok(ins) => ins_list.push(self.decode(ins)?.to_string()),
+            Err(RiscVError::EndOfInstruction) => break Ok(ins_list),
+            Err(e) => break Err(e)
+            }
+        }
     }
 }
 

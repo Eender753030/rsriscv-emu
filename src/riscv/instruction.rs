@@ -1,15 +1,20 @@
-#[derive(Debug)]
-pub enum InstructionKind {
-    Itype,
-    ItypeLoad,
-    ItypeJump,
-    ItypeSys,
-    Rtype,
-    Stype,
-    Btype,
-    UtypeLUI,
-    UtypeAUIPC,
-    Jtype,
+use crate::utils::exception::RiscVError;
+
+use std::fmt::Display;
+
+struct OpCode;
+
+impl OpCode {
+    const ITYPE: u32 = 0x13;
+    const ITYPE_LOAD: u32 = 0x03;
+    const ITYPE_JUMP: u32 = 0x67;
+    const ITYPE_SYS: u32 = 0x73;
+    const RTYPE: u32 = 0x33;
+    const STYPE: u32 = 0x23;
+    const BTYPE: u32 = 0x63;
+    const JTYPE: u32 = 0x6f;
+    const UTYPE_AUIPC: u32 = 0x17;
+    const UTYPE_LUI: u32 = 0x37;
 }
 
 #[derive(Debug)]
@@ -26,88 +31,199 @@ pub enum Instruction {
     Jtype {rd: usize, imm: i32},
 }
 
-impl Instruction {
-    pub fn parse(ins_type: InstructionKind, ins: u32) -> Self {
-        match ins_type {
-            InstructionKind::Itype  => {
-                Instruction::Itype {
-                    rd:  ((ins >> 7) & 0x1f) as usize,
-                    rs1: ((ins >> 15) & 0x1f) as usize,
-                    imm: ((ins & 0xfff00000) as i32) >> 20,
-                    funct3: ((ins >> 12) & 0x7) as u8
-                }
-            },
+impl TryFrom<u32> for Instruction {
+    type Error = RiscVError;
+    fn try_from(ins: u32) -> Result<Self, Self::Error> {
+        let rd = ((ins >> 7) & 0x1f) as usize;
+        let rs1 = ((ins >> 15) & 0x1f) as usize;
+        let rs2 = ((ins >> 20) & 0x1f) as usize;
+        let funct3 = ((ins >> 12) & 0x7) as u8;
+        let funct7 = ((ins >> 25) & 0x7f) as u8;
 
-            InstructionKind::ItypeLoad  => {
-                Instruction::ItypeLoad {
-                    rd:  ((ins >> 7) & 0x1f) as usize,
-                    rs1: ((ins >> 15) & 0x1f) as usize,
-                    imm: ((ins & 0xfff00000) as i32) >> 20,
-                    funct3: ((ins >> 12) & 0x7) as u8
-                }
+        Ok(match ins & 0x7f {
+            OpCode::ITYPE => {
+                let imm = ((ins & 0xfff00000) as i32) >> 20;
+                Instruction::Itype {rd, rs1, imm, funct3}
             },
-
-            InstructionKind::ItypeJump => {
-                Instruction::ItypeJump {
-                    rd:  ((ins >> 7) & 0x1f) as usize,
-                    rs1: ((ins >> 15) & 0x1f) as usize,
-                    imm: ((ins & 0xfff00000) as i32) >> 20,
-                }
+            OpCode::ITYPE_LOAD => {
+                let imm = ((ins & 0xfff00000) as i32) >> 20;
+                Instruction::ItypeLoad {rd, rs1, imm, funct3}
             },
-
-            InstructionKind::ItypeSys => {
-                Instruction::ItypeSys {
-                    imm: ((ins & 0xfff00000) as i32) >> 20
-                }
+            OpCode::ITYPE_JUMP => {
+                let imm = ((ins & 0xfff00000) as i32) >> 20;
+                Instruction::ItypeJump {rd, rs1, imm}
+            },
+            OpCode::ITYPE_SYS => {
+                let imm = ((ins & 0xfff00000) as i32) >> 20;
+                Instruction::ItypeSys {imm}
+            },
+            OpCode::RTYPE => {
+                Instruction::Rtype {rd, rs1, rs2, funct3, funct7}
+            },
+            OpCode::STYPE => {
+                let imm = (((ins & 0xfe000000) as i32) >> 20) | (((ins >> 7) & 0x1f) as i32);
+                Instruction::Stype {rs1, rs2, imm, funct3}
+            },
+            OpCode::BTYPE => {
+                let imm = (((ins & 0x80000000) as i32) >> 19) | ((((ins & 0x80) << 4) | ((ins & 0x7e000000) >> 20) | ((ins & 0xf00) >> 7)) as i32);
+                Instruction::Btype {rs1, rs2, imm, funct3}
+            },
+            OpCode::JTYPE => {
+                let imm = (((ins & 0x80000000) as i32) >> 11) | (((ins & 0xff000) | ((ins & 0x100000) >> 9) | ((ins & 0x7fe00000) >> 20)) as i32);
+                Instruction::Jtype {rd, imm}
+            },
+            OpCode::UTYPE_LUI => {
+                let imm = ins & 0xfffff000;
+                Instruction::UtypeLUI {rd, imm}
+            },
+            OpCode::UTYPE_AUIPC => {
+                let imm = ins & 0xfffff000;
+                Instruction::UtypeAUIPC {rd, imm}  
+            },  
+            not_exist_opcode => {
+                return Err(RiscVError::NotImplementedOpCode(not_exist_opcode))
             }
+        })
+    }
+}
 
-            InstructionKind::Rtype => {
-                Instruction::Rtype {
-                    rd:  ((ins >> 7) & 0x1f) as usize,
-                    rs1: ((ins >> 15) & 0x1f) as usize,
-                    rs2: ((ins >> 20) & 0x1f) as usize,
-                    funct3: ((ins >> 12) & 0x7) as u8,
-                    funct7: ((ins >> 25) & 0x7f) as u8,
-                }
+impl Display for Instruction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Instruction::Itype {rd, rs1, imm, funct3} => {  
+                write!(
+                    f, "{} x{}, x{}, {}",
+                    match funct3 {
+                        0x0 => "addi   ",               
+                        0x1 => "slli   ",
+                        0x2 => "slti   ",
+                        0x3 => "sltiu  ",
+                        0x4 => "xori   ",  
+                        0x5 => {
+                            match (imm & 0xfe0) >> 5 {
+                                0x00 => "srli   ",
+                                0x20 => "srai   ",
+                                _ => " "
+                            }
+                        },
+                        0x6 => "ori    ",
+                        0x7 => "andi   ",
+                        _ => " "
+                    },
+                    rd, rs1, imm
+                )
             },
-
-            InstructionKind::Stype => {
-                Instruction::Stype {
-                    rs1: ((ins >> 15) & 0x1f) as usize,
-                    rs2: ((ins >> 20) & 0x1f) as usize,
-                    imm: (((ins & 0xfe000000) as i32) >> 20) | (((ins >> 7) & 0x1f) as i32),
-                    funct3: ((ins >> 12) & 0x7) as u8,
-                }
+            Instruction::ItypeLoad {rd, rs1, imm, funct3} => {
+                write!(
+                    f, "{} x{}, {}(x{})",
+                    match funct3 {
+                        0x0 => "lb     ",
+                        0x1 => "lh     ",
+                        0x2 => "lw     ",
+                        0x4 => "lbu    ",
+                        0x5 => "lhu    ",
+                        _ => " "
+                    },
+                    rd, imm, rs1
+                )
             },
-
-            InstructionKind::Btype => {
-                Instruction::Btype { 
-                    rs1: ((ins >> 15) & 0x1f) as usize, 
-                    rs2: ((ins >> 20) & 0x1f) as usize, 
-                    imm: (((ins & 0x80000000) as i32) >> 19) | ((((ins & 0x80) << 4) | ((ins & 0x7e000000) >> 20) | ((ins & 0xf00) >> 7)) as i32), 
-                    funct3: ((ins >> 12) & 0x7) as u8
-                }
+            Instruction::ItypeJump {rd, rs1, imm} => {
+                write!(
+                    f, "jalr    x{}, {}(x{})    # Go {} steps: {}",
+                    rd, imm, rs1,   
+                    match imm.is_positive() {
+                        true => "forward",
+                        false => "backward"
+                    },
+                    (imm >> 1) + 1
+                )
             },
-
-            InstructionKind::UtypeLUI => {
-                Instruction::UtypeLUI { 
-                    rd: ((ins >> 7) & 0x1f) as usize, 
-                    imm: ins & 0xfffff000
-                }
+            Instruction::ItypeSys {imm} => {
+                write!(
+                    f, "{}",
+                    match imm {
+                        0 => "ecall",
+                        1 => "ebreak",
+                        _ => " "
+                    }
+                )
             },
-
-            InstructionKind::UtypeAUIPC => {
-                Instruction::UtypeAUIPC { 
-                    rd: ((ins >> 7) & 0x1f) as usize, 
-                    imm: ins & 0xfffff000
-                }
-            }
-
-            InstructionKind::Jtype => {
-                Instruction::Jtype { 
-                    rd: ((ins >> 7) & 0x1f) as usize, 
-                    imm: (((ins & 0x80000000) as i32) >> 11) | (((ins & 0xff000) | ((ins & 0x100000) >> 9) | ((ins & 0x7fe00000) >> 20)) as i32)
-                }
+            Instruction::Rtype {rd, rs1, rs2, funct3, funct7} => {
+                write!(
+                    f, "{}  x{}, x{}, x{}",
+                    match funct3 {
+                        0x0 => {             
+                            match funct7 {
+                                0x00 => "add    ",
+                                0x20 => "sub    ",
+                                _ => " "
+                            }                  
+                        },
+                        0x1 => "sll    ",
+                        0x2 => "slt    ",
+                        0x3 => "sltu   ",
+                        0x4 => "xor    ",
+                        0x5 => {
+                            match funct7 {
+                                0x00 => "srl    ",
+                                0x20 => "sra    ",
+                                _ => " "
+                            }   
+                        },
+                        0x6 => "or     ",
+                        0x7 => "and    ",
+                        _ => " "
+                    },
+                    rd, rs1, rs2
+                )
+            },
+            Instruction::Stype {rs1, rs2, imm, funct3} => {
+                write!(
+                    f, "{} x{}, {}(x{})",
+                    match funct3 {
+                        0x0 => "sb     ", 
+                        0x1 => "sh     ", 
+                        0x2 => "sw     ", 
+                        _ => " "
+                    },
+                    rs2, imm, rs1)
+            },
+            Instruction::Btype {rs1, rs2, imm, funct3} => { 
+                write!(
+                    f, "{} x{}, x{}, {}    # {} steps: {}",
+                    match funct3 {
+                        0x0 => "beq    ",
+                        0x1 => "bne    ",
+                        0x4 => "blt    ",
+                        0x5 => "bge    ",
+                        0x6 => "bltu   ",
+                        0x7 => "bgeu   ",
+                        _ => " "
+                    },
+                    rs1, rs2, imm << 1, 
+                    match imm.is_positive() {
+                        true => "foward",
+                        false => "backward"
+                    },
+                    (imm >> 1) + 1
+                )
+            },
+            Instruction::Jtype {rd, imm} => {
+                write!(
+                    f, "jal     x{}, {}      # Go {} steps: {}",
+                    rd, imm << 1, 
+                    match imm.is_positive() {
+                        true => "forward",
+                        false => "backward"
+                    },
+                    (imm >> 1) + 1
+                )
+            },
+            Instruction::UtypeLUI {rd, imm} => {
+               write!(f, "lui     x{}, 0x{:x}", rd, imm >> 12)
+            },
+            Instruction::UtypeAUIPC {rd, imm} => {
+                write!(f, "auipc   x{}, {}", rd, imm)
             },
         }
     }

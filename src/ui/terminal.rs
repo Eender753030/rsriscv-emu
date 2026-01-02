@@ -20,7 +20,7 @@ pub struct EmuTerminal {
 }
 
 impl EmuTerminal {
-    pub fn init_terminal() -> io::Result<EmuTerminal> {
+    pub fn new() -> io::Result<EmuTerminal> {
         enable_raw_mode()?;
         execute!(io::stdout(), EnterAlternateScreen)?;
         Ok(EmuTerminal {

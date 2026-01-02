@@ -23,7 +23,7 @@ const OBSERVATION_HINT_MESSAGE: &str = "Q: Leave    TAB: Switch mode    Up/Down:
 const EMULATE_HINT_MESSAGE: &str = "Q: Leave   TAB: Change mode    S: Single step    P: Run to end    R: Reset";
 
 pub fn tui_loop(emu_state: &mut EmuState, machine: &mut RiscV) -> Result<()> {
-    let mut emu_terminal = terminal::EmuTerminal::init_terminal()?;
+    let mut emu_terminal = terminal::EmuTerminal::new()?;
 
     loop {
         emu_terminal.draw(ui, emu_state)?;
@@ -52,7 +52,7 @@ pub fn tui_loop(emu_state: &mut EmuState, machine: &mut RiscV) -> Result<()> {
                     }
                     KeyControl::Reset => {
                         machine.reset();
-                        emu_state.update_data(machine.dump());
+                        emu_state.update_data(machine.dump_data());
                         emu_state.update_ins_selected();
                     },
                     KeyControl::Step => {
@@ -62,7 +62,7 @@ pub fn tui_loop(emu_state: &mut EmuState, machine: &mut RiscV) -> Result<()> {
                                 _ => return Err(anyhow::Error::new(e))
                             }
                         }
-                        emu_state.update_data(machine.dump());
+                        emu_state.update_data(machine.dump_data());
                         emu_state.update_ins_selected();
                     },
                     KeyControl::RunToEnd => emu_state.mode = EmuMode::Running,
@@ -76,7 +76,7 @@ pub fn tui_loop(emu_state: &mut EmuState, machine: &mut RiscV) -> Result<()> {
                         _ => return Err(anyhow::Error::new(e))
                     }
                 }
-                emu_state.update_data(machine.dump());
+                emu_state.update_data(machine.dump_data());
                 emu_state.update_ins_selected();
             }
         }
