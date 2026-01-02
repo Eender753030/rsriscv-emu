@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq)]
 pub enum RiscVError {
     #[error("Register: Not exist register: {0}")]
     InvalidRegister(usize),
@@ -9,7 +9,10 @@ pub enum RiscVError {
     OutOfBoundMemory,
 
     #[error("Memeory: Only can read 1 to 4 bytes")]
-    ReadInvalidByets,
+    ReadInvalidBytes,
+
+    #[error("Memeory: Cannot write 0 byte")]
+    WriteInvalidBytes,
 
     #[error("PC: PC value `{0}` not misaligned to byte")]
     InstructionAddressMisaligned(u32),
