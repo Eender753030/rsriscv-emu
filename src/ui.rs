@@ -14,7 +14,7 @@ use anyhow::Result;
 use std::time::Duration;
 
 use crate::utils::exception::RiscVError;
-use crate::riscv::RiscV;
+use crate::riscv::{RiscV, Reset};
 use key::KeyControl;
 use state::{EmuState, EmuMode};
 

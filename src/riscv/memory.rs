@@ -1,6 +1,7 @@
 //! Memory define and implement for Risc-V
 
 use crate::utils::exception::RiscVError;
+use super::{Reset, Dump};
 
 /// Memory structure. Store `u8` data as Little Endian.
 /// Unit of `size` is byte
@@ -173,9 +174,16 @@ impl Memory {
         self.space[idx..idx+bytes_amount].copy_from_slice(&write_data[0..bytes_amount]);
         
         Ok(())
-    } 
+    }
+}
 
-    /// Reset `Memory`'s `space` by fill 0
+impl Default for Memory {
+    fn default() -> Self {
+        Self::new(1024)
+    }
+}
+
+/// Reset `Memory`'s `space` by fill 0
     /// ## Example
     /// # use super::Memory;
     /// ```rust,ignore
@@ -186,23 +194,25 @@ impl Memory {
     /// mem.reset();
     /// // Now mem'space is vec![0; 4]
     /// ```
-    pub fn reset(&mut self) {
+impl Reset for Memory {
+    fn reset(&mut self) {
         self.space.fill(0);
     }
+}
 
-    /// Dump `Memory`'s data by a `Vec` of 4 size `u8` arrays.  
-    /// ## Example
-    /// ```rust,ignore
-    /// let mut mem = Memory::new(8);
-    /// let data1: [u8; 4] = [0xDD, 0xCC, 0xBB, 0xAA];
-    /// let data2: [u8; 4] = [0x99, 0x88, 0x77, 0x66];
-    /// mem.load(0, &data1)?;
-    /// mem.load(4, &data2)?;
-    ///
-    /// assert_eq!(mem.dump(), vec![data1, data2]);
-    /// ```
-    pub fn dump(&self) -> Vec<[u8; 4]> {
-        // Safe: slice definitely is 4 size array that memory space is multiple of 4
+/// Dump `Memory`'s data by a `Vec` of 4 size `u8` arrays.  
+/// ## Example
+/// ```rust,ignore
+/// let mut mem = Memory::new(8);
+/// let data1: [u8; 4] = [0xDD, 0xCC, 0xBB, 0xAA];
+/// let data2: [u8; 4] = [0x99, 0x88, 0x77, 0x66];
+/// mem.load(0, &data1)?;
+/// mem.load(4, &data2)?;
+///
+/// assert_eq!(mem.dump(), vec![data1, data2]);
+/// ```
+impl Dump<[u8; 4]> for Memory {
+    fn dump(&self) -> Vec<[u8; 4]> {
         self.space.chunks(4).map(|slice| slice.try_into().unwrap()).collect()
     }
 }
@@ -210,7 +220,7 @@ impl Memory {
 #[cfg(test)]
 mod memory_tests {
     use crate::utils::exception::RiscVError;
-    use super::Memory;
+    use super::{Memory, Reset, Dump};
 
     #[test]
     fn create_test() {  

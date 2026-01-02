@@ -1,4 +1,5 @@
 use crate::utils::exception::RiscVError;
+use super::{Reset, Dump};
 
 #[derive(Debug)]
 pub struct Registers {
@@ -6,10 +7,6 @@ pub struct Registers {
 } 
 
 impl Registers {
-    pub fn new() -> Self {
-        Registers{registers: [0; 32]}
-    }
-
     pub fn read(&self, id: usize) -> Result<u32, RiscVError> {
         if id == 0 {
             return Ok(0);
@@ -35,13 +32,23 @@ impl Registers {
 
 
         Ok(())
-    }
+    } 
+}
 
-    pub fn reset(&mut self) {
+impl Default for Registers {
+    fn default() -> Self {
+        Registers{registers: [0; 32]}
+    }
+}
+
+impl Reset for Registers {
+    fn reset(&mut self) {
         self.registers.fill(0);
     }
+}
 
-    pub fn dump_signed_vec(&self) -> Vec<i32> {
+impl Dump<i32> for Registers {
+    fn dump(&self) -> Vec<i32> {
         self.registers.iter().map(|&x| x as i32).collect()
-    } 
+    }
 }

@@ -1,13 +1,14 @@
+//! Program Counter define and implment for Risc-V
+
+use super::Reset; 
+
+/// Program Counter structure. Has a pointer that every step plus 4 (bytes)
 #[derive(Debug)]
 pub struct PC {
     pointer: u32,
 }
 
 impl PC {
-    pub fn new() -> Self {
-        PC{pointer: 0}
-    }
-
     pub fn step(&mut self) {
         self.pointer += 4;
     }
@@ -26,5 +27,17 @@ impl PC {
 
     pub fn directed_addressing(&mut self, address: u32) {
         self.pointer = address;
+    }
+}
+
+impl Default for PC {
+    fn default() -> Self {
+        PC{pointer: 0}
+    }
+}
+
+impl Reset for PC {
+    fn reset(&mut self) {
+        self.pointer = 0;
     }
 }

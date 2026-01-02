@@ -11,6 +11,14 @@ use pc::PC;
 use memory::Memory;
 use crate::{riscv::instruction::Instruction, utils::exception::RiscVError};
 
+pub trait Reset {
+    fn reset(&mut self);   
+}
+
+pub trait Dump<T> {
+    fn dump(&self) -> Vec<T>;   
+}
+
 pub struct RiscV {
     registers: Registers,
     pc: PC,
@@ -20,11 +28,10 @@ pub struct RiscV {
 
 impl RiscV {
     pub fn new(memory_size: usize) -> Self {
-        RiscV {
-            registers: Registers::new(),
-            pc: PC::new(),
-            ins_memory: Memory::new(memory_size / 2),
+        RiscV { 
+            ins_memory: Memory::new(memory_size / 2), 
             data_memory: Memory::new(memory_size),
+            ..Default::default()
         }
     }
     
@@ -271,19 +278,9 @@ impl RiscV {
         Ok(())
     }
 
-    pub fn reset(&mut self) {
-        self.registers.reset();
-        self.data_memory.reset();
-        self.pc.reset();
-    }
-
-    pub fn print(&self) {
-        println!("Registers {{ {:?} }}\n{:?}\n{:?}", self.registers.dump_signed_vec(), self.pc, self.data_memory.dump());
-    }
-
     pub fn dump_data(&self) -> (Vec<i32>, Vec<[u8; 4]>, u32) {
         (
-            self.registers.dump_signed_vec(),
+            self.registers.dump(),
             self.data_memory.dump(),
             self.pc.get()
         )
@@ -309,6 +306,25 @@ impl RiscV {
 
 impl Default for RiscV {
     fn default() -> Self {
-        Self::new(1024)
+        RiscV {
+            registers: Registers::default(),
+            pc: PC::default(),
+            ins_memory: Memory::new(512),
+            data_memory: Memory::default(),
+        }
+    }
+}
+
+impl Reset for RiscV {
+    fn reset(&mut self) {
+        self.registers.reset();
+        self.data_memory.reset();
+        self.pc.reset();
+    }
+}
+
+impl std::fmt::Debug for RiscV {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Registers {{ {:?} }}\nPC: {}\nMemory: {:?}", self.registers.dump(), self.pc.get(), self.data_memory.dump())
     }
 }
