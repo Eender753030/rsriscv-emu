@@ -2,19 +2,19 @@ use crate::utils::exception::RiscVError;
 
 use std::fmt::Display;
 
-struct OpCode;
+pub struct OpCode;
 
 impl OpCode {
-    const ITYPE: u32 = 0x13;
-    const ITYPE_LOAD: u32 = 0x03;
-    const ITYPE_JUMP: u32 = 0x67;
-    const ITYPE_SYS: u32 = 0x73;
-    const RTYPE: u32 = 0x33;
-    const STYPE: u32 = 0x23;
-    const BTYPE: u32 = 0x63;
-    const JTYPE: u32 = 0x6f;
-    const UTYPE_AUIPC: u32 = 0x17;
-    const UTYPE_LUI: u32 = 0x37;
+    pub const ITYPE: u32 = 0x13;
+    pub const ITYPE_LOAD: u32 = 0x03;
+    pub const ITYPE_JUMP: u32 = 0x67;
+    pub const ITYPE_SYS: u32 = 0x73;
+    pub const RTYPE: u32 = 0x33;
+    pub const STYPE: u32 = 0x23;
+    pub const BTYPE: u32 = 0x63;
+    pub const JTYPE: u32 = 0x6f;
+    pub const UTYPE_AUIPC: u32 = 0x17;
+    pub const UTYPE_LUI: u32 = 0x37;
 }
 
 #[derive(Debug)]
