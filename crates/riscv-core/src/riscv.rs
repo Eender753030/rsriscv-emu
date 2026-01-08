@@ -3,13 +3,12 @@ mod pc;
 mod memory;
 mod instruction;
 mod alu;
-pub mod loader;
 
 use register::Registers;
 use pc::PC;
 use memory::Memory;
 use alu::ALU;
-use crate::{riscv::instruction::{Instruction, OpCode}, utils::exception::RiscVError};
+use crate::{riscv::instruction::{Instruction, OpCode}, error::RiscVError};
 
 pub trait Reset {
     fn reset(&mut self);   

@@ -1,4 +1,4 @@
-use crate::utils::exception::RiscVError;
+use crate::error::RiscVError;
 use super::{Reset, Dump};
 
 #[derive(Debug)]

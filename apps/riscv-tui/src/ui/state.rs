@@ -1,6 +1,6 @@
 use ratatui::widgets::ListState;
 
-use crate::riscv::RiscV;
+use riscv_core::RiscV;
 
 pub enum Selected {
     Ins,

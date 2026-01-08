@@ -1,6 +1,8 @@
-use risc_v_emulator::riscv::RiscV;
-use risc_v_emulator::riscv::{loader};
-use risc_v_emulator::ui::{self, state};
+mod ui;
+mod loader;
+
+use riscv_core::riscv::RiscV;
+use crate::ui::state;
 
 use anyhow::Result;
 

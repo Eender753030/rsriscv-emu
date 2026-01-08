@@ -1,8 +1,19 @@
 //! For handle file or argument from outside.
 
-use crate::utils::exception::CliError;
+use thiserror::Error;
 
 use std::{io::{self, Read}, fs, env};
+
+const USAGE: &str = "Usage: cargo run <binary_file>";
+
+#[derive(Error, Debug)]
+pub enum CliError {
+    #[error("CLI: No input binary file\n{}", USAGE)]
+    NoInputBinary,
+
+    #[error("CLI: Too many input file\n{}", USAGE)]
+    TooManyArgument,
+}
 
 /// Load CLI argument from `env::args().skip(1)`. Only accept one binary file for now.
 /// ## Example

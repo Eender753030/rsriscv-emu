@@ -13,8 +13,8 @@ use anyhow::Result;
 
 use std::time::Duration;
 
-use crate::{ui::state::Selected, utils::exception::RiscVError};
-use crate::riscv::Reset;
+use crate::ui::state::Selected;
+use riscv_core::{riscv::Reset, error::RiscVError};
 use key::KeyControl;
 use state::{EmuState, EmuMode};
 

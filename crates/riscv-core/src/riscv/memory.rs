@@ -1,6 +1,6 @@
 //! Memory define and implement for Risc-V
 
-use crate::utils::exception::RiscVError;
+use crate::error::RiscVError;
 use super::{Reset, Dump};
 
 /// Memory structure. Store `u8` data as Little Endian.
@@ -219,7 +219,7 @@ impl Dump<[u8; 4]> for Memory {
 
 #[cfg(test)]
 mod memory_tests {
-    use crate::utils::exception::RiscVError;
+    use crate::error::RiscVError;
     use super::{Memory, Reset, Dump};
 
     #[test]

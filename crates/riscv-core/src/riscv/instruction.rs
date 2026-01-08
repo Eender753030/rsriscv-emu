@@ -1,4 +1,4 @@
-use crate::utils::exception::RiscVError;
+use crate::error::RiscVError;
 
 use std::fmt::Display;
 

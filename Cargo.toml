@@ -1,10 +1,9 @@
-[package]
-name = "risc-v_emulator"
-version = "0.1.0"
-edition = "2024"
+[workspace]
+resolver = "2"
+members = [
+    "crates/*",
+    "apps/*",
+]
 
-[dependencies]
-thiserror = "2"
-anyhow = "1"
-crossterm = "0.29.0"
-ratatui = { version = "0.30.0", features = ["crossterm"] }
+[workspace.dependencies]
+riscv-core = {path = "crates/riscv-core"}

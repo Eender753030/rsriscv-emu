@@ -1,4 +1,4 @@
-use crate::utils::exception::RiscVError;
+use crate::error::RiscVError;
 use super::instruction::OpCode;
 pub struct ALU;
 
