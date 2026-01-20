@@ -2,7 +2,7 @@
 
 use std::ops::{Deref, DerefMut};
 
-use crate::error::RiscVError;
+use crate::exception::Exception;
 
 use super::bus::Bus;
 
@@ -35,10 +35,43 @@ impl DerefMut for Page {
 
 /// Memory structure. Store `u8` data as Little Endian.
 /// Unit of `size` is byte
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct Memory {
     pub size: usize,
     pages: Vec<Option<Box<Page>>>,
+}
+
+impl std::fmt::Debug for Memory {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "Memory {{ size: {}, pages: {} }}", self.size, self.pages.len())?;
+    
+        self.pages.iter()
+            .enumerate()
+            .filter_map(|(page_idx, page_opt)| {
+                page_opt.as_deref().map(|page| (page_idx, page))
+            })
+            .flat_map(|(page_idx, page)| {
+                page.space.chunks(16)
+                    .enumerate()
+                    .filter(|(_, line)| line.iter().any(|&b| b != 0))
+                    .map(move |(offset, line)| {
+                        let addr = page_idx * PAGE_SIZE + (offset * 16);
+                        (addr, line)
+                    })
+            })
+            .try_for_each(|(addr, line)| {
+                write!(f, " [0x{:08X}] ", addr)?;
+
+                line.chunks(4).try_for_each(|group| {
+                    for byte in group {
+                        write!(f, "{:02X}", byte)?;
+                    }
+                    write!(f, " ")
+                })?;
+
+                writeln!(f)
+            })
+    }
 }
 
 impl Memory {
@@ -54,11 +87,17 @@ impl Memory {
         self.pages.fill(None);
     }
 
-    fn translate(&mut self, addr: usize) -> &mut Page {
+    fn translate(&self, addr: usize) -> Option<&Page> {
+        let idx = addr / PAGE_SIZE;
+
+        self.pages[idx].as_ref().map(|page| page.as_ref())
+    }
+
+    fn translate_mut(&mut self, addr: usize) -> &mut Page {
         let idx = addr / PAGE_SIZE;
 
         if self.pages[idx].is_none() {
-            self.pages[idx] = Some(Box::new(Page::default()));
+            self.pages[idx].replace(Box::new(Page::default()));
         }
 
         // Safe
@@ -66,44 +105,35 @@ impl Memory {
     }
 }
 
-const _4GB: usize = 4 * 1024 * 1024 * 1024;
+const _2GB: usize = 2 * 1024 * 1024 * 1024;
 
 impl Default for Memory {
     fn default() -> Self {
-        Self::new(_4GB)
+        Self::new(_2GB)
     }
 }
 
 impl Bus for Memory {
-    fn read_byte(&mut self, addr: u32) -> Result<u8, RiscVError> {
+    fn read_byte(&self, addr: u32) -> Result<u8, Exception> {
         let addr = addr as usize;
 
-        if addr >= self.size {
-            Err(RiscVError::OutOfBoundMemory)
-        } else {
-            let page = self.translate(addr);
-            Ok(page[addr % PAGE_SIZE])
+        let page = self.translate(addr);
+        if page.is_none() {
+            panic!("Not init page");
         }
+        Ok(page.unwrap()[addr % PAGE_SIZE])
     }
 
-    fn write_byte(&mut self, addr: u32, data: u8) -> Result<(), RiscVError> {
+    fn write_byte(&mut self, addr: u32, data: u8) -> Result<(), Exception> {
         let addr = addr as usize;
 
-        if addr >= self.size {
-            Err(RiscVError::OutOfBoundMemory)
-        } else {
-            let page = self.translate(addr);
-            page[addr % PAGE_SIZE] = data;
-            Ok(())
-        }
+        let page = self.translate_mut(addr);
+        page[addr % PAGE_SIZE] = data;
+        Ok(())
     }
 
-    fn read_bytes(&mut self, addr: u32, size: usize, des: &mut [u8]) -> Result<(), RiscVError> {
+    fn read_bytes(&self, addr: u32, size: usize, des: &mut [u8]) -> Result<(), Exception> {
         let addr = addr as usize;
-
-        if addr + size > self.size {
-            return Err(RiscVError::OutOfBoundMemory);
-        }
 
         let mut start = 0;
         let mut curr_addr = addr;
@@ -115,7 +145,10 @@ impl Bus for Memory {
 
             let page = self.translate(curr_addr);
 
-            des[start..start + len].copy_from_slice(&page[p_start..p_start + len]);
+            match page {
+                None => panic!("Not init page"),
+                Some(p) => des[start..start + len].copy_from_slice(&p[p_start..p_start + len]),
+            }
 
             start += len;
             curr_addr += len;
@@ -124,12 +157,8 @@ impl Bus for Memory {
         Ok(())
     }
 
-    fn write_bytes(&mut self, addr: u32, size: usize, src: &[u8]) -> Result<(), RiscVError> {
+    fn write_bytes(&mut self, addr: u32, size: usize, src: &[u8]) -> Result<(), Exception> {
         let addr = addr as usize;
-
-        if addr + size > self.size {
-            return Err(RiscVError::OutOfBoundMemory);
-        }
 
         let mut start = 0;
         let mut curr_addr = addr;
@@ -139,7 +168,7 @@ impl Bus for Memory {
             let remain = PAGE_SIZE - p_start;
             let len = std::cmp::min(src.len() - start, remain);
 
-            let page = self.translate(curr_addr);
+            let page = self.translate_mut(curr_addr);
 
             page[p_start..p_start + len].copy_from_slice(&src[start..start + len]);
 
@@ -153,7 +182,7 @@ impl Bus for Memory {
 
 #[cfg(test)]
 mod memory_tests {
-    use crate::device::memory::_4GB;
+    use crate::device::memory::_2GB;
     use crate::device::memory::PAGE_SIZE;
 
     use super::Bus;
@@ -161,10 +190,10 @@ mod memory_tests {
 
     #[test]
     fn create_test() {
-        let mem = Memory::new(_4GB);
+        let mem = Memory::new(_2GB);
 
-        assert_eq!(mem.size, _4GB);
-        assert_eq!(mem.pages, vec![None; _4GB / PAGE_SIZE]);
+        assert_eq!(mem.size, _2GB);
+        assert_eq!(mem.pages, vec![None; _2GB / PAGE_SIZE]);
     }
 
     #[test]
