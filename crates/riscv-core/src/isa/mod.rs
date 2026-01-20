@@ -1,6 +1,5 @@
 pub mod decoder;
-pub mod instruction;
+mod instruction;
 pub mod opcode;
-pub mod types;
 
-pub use instruction::Instruction;
+pub use instruction::*;

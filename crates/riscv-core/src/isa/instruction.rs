@@ -1,18 +1,19 @@
 //! Definition of enum corresponding to opcode
+mod rv32i;
 
-use super::types::*;
+pub use rv32i::Rv32iOp;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct InstructionData {
+    pub rd: u8,
+    pub rs1: u8,
+    pub rs2: u8,
+    pub imm: i32,
+}
 
 /// Definition of enum corresponding to opcode
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Instruction {
-    Itype(Itype),
-    ItypeLoad(Itype),
-    ItypeJump(Itype),
-    ItypeSys(Itype),
-    Rtype(Rtype),
-    Stype(Stype),
-    Btype(Btype),
-    UtypeAUIPC(Utype),
-    UtypeLUI(Utype),
-    Jtype(Jtype),
+    Base(Rv32iOp, InstructionData),
+    // System(SystemOp, InstructionData),
 }

@@ -1,52 +1,75 @@
 //! The const of magic number for decoding
 
-/// Define const of every instruction corresponding to opcode
-pub struct OpCode;
+use crate::exception::Exception;
 
-impl OpCode {
-    pub const ITYPE: u8 = 0x13;
-    pub const ITYPE_LOAD: u8 = 0x03;
-    pub const ITYPE_JUMP: u8 = 0x67;
-    pub const ITYPE_SYS: u8 = 0x73;
-    pub const RTYPE: u8 = 0x33;
-    pub const STYPE: u8 = 0x23;
-    pub const BTYPE: u8 = 0x63;
-    pub const JTYPE: u8 = 0x6f;
-    pub const UTYPE_AUIPC: u8 = 0x17;
-    pub const UTYPE_LUI: u8 = 0x37;
+/// Define const of every instruction corresponding to opcode
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OpCode {
+    Itype = 0x13,
+    ItypeLoad = 0x03,
+    ItypeJump = 0x67,
+    ItypeFence = 0x0f,
+    ItypeSystem = 0x73,
+    Rtype = 0x33,
+    Stype = 0x23,
+    Btype = 0x63,
+    Jtype = 0x6f,
+    UtypeAuipc = 0x17,
+    UtypeLui = 0x37,  
 }
 
-/// Define bits position for decoding  
-pub struct Bits;
+impl TryFrom<u8> for OpCode {
+    type Error = Exception;
 
-impl Bits {
-    pub const _31: u32 = 0b1000_0000_0000_0000_0000_0000_0000_0000;
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0x13 => Ok(OpCode::Itype),
+            0x03 => Ok(OpCode::ItypeLoad),
+            0x67 => Ok(OpCode::ItypeJump),
+            0x0f => Ok(OpCode::ItypeFence),
+            0x73 => Ok(OpCode::ItypeSystem),
+            0x33 => Ok(OpCode::Rtype),
+            0x23 => Ok(OpCode::Stype),
+            0x63 => Ok(OpCode::Btype),
+            0x6f => Ok(OpCode::Jtype),
+            0x17 => Ok(OpCode::UtypeAuipc),
+            0x37 => Ok(OpCode::UtypeLui),
+            _ => Err(Exception::IllegalInstruction),
+        }
+    }
+}
 
-    pub const _31_TO_25: u32 = 0b1111_1110_0000_0000_0000_0000_0000_0000;
+impl From<OpCode> for u8 {
+    fn from(value: OpCode) -> Self {
+        value as u8
+    }
+}
 
-    pub const _31_TO_20: u32 = 0b1111_1111_1111_0000_0000_0000_0000_0000;
+/// Define bits position for decoding
+pub trait BitsOp<T> {
+    fn get_bits(&self, offset: usize, len: usize) -> Self;
 
-    pub const _31_TO_12: u32 = 0b1111_1111_1111_1111_1111_0000_0000_0000;
+    fn get_bits_signed(&self, offset: usize, len: usize) -> T;
+}
 
-    pub const _30_TO_25: u32 = 0b0111_1110_0000_0000_0000_0000_0000_0000;
+impl BitsOp<i32> for u32 {
+    fn get_bits(&self, offset: usize, len: usize) -> Self {
+        if offset >= 32 || len == 0 {
+            return 0;
+        }
 
-    pub const _30_TO_21: u32 = 0b0111_1111_1110_0000_0000_0000_0000_0000;
+        let mask = if len >= 32 { !0 } else { !0 >> (32 - len) };
 
-    pub const _24_TO_20: u32 = 0b0000_0001_1111_0000_0000_0000_0000_0000;
+        (*self >> offset) & mask
+    }
 
-    pub const _20: u32 = 0b0000_0000_0001_0000_0000_0000_0000_0000;
+    fn get_bits_signed(&self, offset: usize, len: usize) -> i32 {
+        if offset >= 32 || len == 0 {
+            return 0;
+        }
 
-    pub const _19_TO_15: u32 = 0b0000_0000_0000_1111_1000_0000_0000_0000;
+        let mask = if len >= 32 { !0 } else { !0 >> (32 - len) };
 
-    pub const _19_TO_12: u32 = 0b0000_0000_0000_1111_1111_0000_0000_0000;
-
-    pub const _14_TO_12: u32 = 0b0000_0000_0000_0000_0111_0000_0000_0000;
-
-    pub const _11_TO_8: u32 = 0b0000_0000_0000_0000_0000_1111_0000_0000;
-
-    pub const _11_TO_7: u32 = 0b0000_0000_0000_0000_0000_1111_1000_0000;
-
-    pub const _7: u32 = 0b0000_0000_0000_0000_0000_0000_1000_0000;
-
-    pub const _6_TO_0: u32 = 0b0000_0000_0000_0000_0000_0000_0111_1111;
+        ((*self as i32) << (32 - offset - len) >> offset) & mask
+    }
 }
