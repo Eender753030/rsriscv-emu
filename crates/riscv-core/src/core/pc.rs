@@ -19,11 +19,11 @@ impl PC {
     }
 
     pub fn related_addressing(&mut self, offset: i32) {
-        self.pointer = self.pointer.wrapping_add_signed(offset << 1);
+        self.pointer = self.pointer.wrapping_add_signed(offset);
     }
 
     pub fn directed_addressing(&mut self, address: u32) {
-        self.pointer = address;
+        self.pointer = address & !1;
     }
 }
 

@@ -19,7 +19,6 @@ pub enum Rv32iOp {
     Lhu,
     Jalr,
     Fence,
-    FenceI,
     Ecall,
     Ebreak,
     // Rtype
@@ -83,7 +82,6 @@ impl Rv32iOp {
             },
             OpCode::ItypeFence => match funct3 {
                 0x0 => Some(Rv32iOp::Fence),
-                0x1 => Some(Rv32iOp::FenceI),
                 _ => None,
             },
             OpCode::ItypeSystem => match funct3 {

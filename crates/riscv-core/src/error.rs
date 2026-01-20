@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-#[derive(Error, Debug, PartialEq)]
+#[derive(Error, Clone, Copy, Debug, PartialEq)]
 pub enum RiscVError {
     #[error("Register: Not exist register: {0}")]
     InvalidRegister(u8),
@@ -15,10 +15,7 @@ pub enum RiscVError {
     WriteInvalidBytes,
 
     #[error("PC: PC value `{0}` not misaligned to byte")]
-    InstructionAddressMisaligned(u32),
-
-    #[error("OpCode: Not implemented opcode: 0x{0:02x}")]
-    NotImplementedOpCode(u8),
+    AddressMisaligned(u32),
 
     #[error("OpCode: Not implemented funct 0x{0:x} from: 0x{1:x}")]
     NotImplementedFunc(u8, u8),
@@ -31,4 +28,13 @@ pub enum RiscVError {
 
     #[error("Reach end of Instructions")]
     EndOfInstruction,
+
+    #[error("The address is not connent yet")]
+    UnvalidBusMapping,
+
+    #[error("The address {0} of ram is uninit")]
+    ReadUninitAddr(usize),
+
+    #[error("Not Implemet CSR from address {0}")]
+    NotImplementedCsr(u16),
 }
