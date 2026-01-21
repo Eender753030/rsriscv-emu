@@ -52,6 +52,13 @@ impl CsrFile {
         self.mepc
     } 
 
+    pub fn reset(&mut self) {
+        self.mstate = 0;
+        self.mtvec = 0;
+        self.mepc = 0;
+        self.mcause = 0;
+    }
+
     pub fn inspect(&self) -> Vec<(String, u32)> {
         vec![
             ("mstatus".to_string(), self.mstate),

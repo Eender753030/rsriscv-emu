@@ -13,10 +13,11 @@ use anyhow::Result;
 
 use std::time::Duration;
 
-use crate::ui::state::Selected;
-use riscv_core::{riscv::Reset, error::RiscVError};
+use crate::ui::state::{Mid, Selected};
+use riscv_core::{RiscV, constance::DRAM_BASE_ADDR, debug::*, error::RiscVError};
 use key::KeyControl;
 use state::{EmuState, EmuMode};
+
 
 const HEADER: &str = "RsRisc-V Emulator v0.0.1";
 const OBSERVATION_HINT_MESSAGE: &str = "Q: Leave    TAB: Switch mode    Up/Down: Scroll    Left/Right: Change panel";
@@ -25,12 +26,12 @@ const EMULATE_HINT_MESSAGE: &str = "Q: Leave   TAB: Change mode    S: Single ste
 // const BERKELEY_BLUE: (u8, u8, u8) = (0, 50, 98);
 // const CALIFORNIA_GOLD: (u8, u8, u8) = (253, 181, 21);
 
-
-pub fn tui_loop(emu_state: &mut EmuState) -> Result<()> {
+pub fn tui_loop(machine: &mut RiscV, code: &Vec<u8>) -> Result<()> {
     let mut emu_terminal = terminal::EmuTerminal::new()?;
+    let mut emu_state = EmuState::new(machine, code.len() / 4);
 
     loop {
-        emu_terminal.draw(ui, emu_state)?;
+        emu_terminal.draw(ui, &mut emu_state)?;
 
         match emu_state.mode {
             EmuMode::Observation => {
@@ -44,6 +45,7 @@ pub fn tui_loop(emu_state: &mut EmuState) -> Result<()> {
                     KeyControl::GoPrev => emu_state.prev(),
                     KeyControl::GoLeft => emu_state.go_left(),
                     KeyControl::GoRight => emu_state.go_right(),
+                    KeyControl::ChangeMid => emu_state.change_mid(),
                     _ => {},
                 }
             },
@@ -55,39 +57,41 @@ pub fn tui_loop(emu_state: &mut EmuState) -> Result<()> {
                         emu_state.mode = EmuMode::Observation;
                     }
                     KeyControl::Reset => {
-                        emu_state.emu.reset();
-                        emu_state.update_data(emu_state.emu.dump_data());
-                        emu_state.update_ins_selected();
+                        emu_state.machine.reset();
+                        emu_state.machine.fisrt_load(code)?;
+                        emu_state.update_data();
                     },
                     KeyControl::Step => {
-                        if let Err(e) = emu_state.emu.step() {
+                        if let Err (e) = emu_state.machine.step() {
                             match e {
-                                RiscVError::SystemExit(_) | RiscVError::EndOfInstruction => {},
-                                _ => return Err(anyhow::Error::new(e))
+                                RiscVError::EndOfInstruction => {},
+                                _ => return Err(anyhow::Error::new(e)),
                             }
                         }
-                        emu_state.update_data(emu_state.emu.dump_data());
-                        emu_state.update_ins_selected();
+                        emu_state.update_data();
                     },
                     KeyControl::RunToEnd => emu_state.mode = EmuMode::Running,
                     _ => {},
                 }
             },
-            EmuMode::Running => {
-                if let Err(e) = emu_state.emu.step() {
-                    match e {
-                        RiscVError::SystemExit(_) | RiscVError::EndOfInstruction => emu_state.mode = EmuMode::Stay,
-                        _ => return Err(anyhow::Error::new(e))
+            EmuMode::Running => {  
+                if (emu_state.pc - DRAM_BASE_ADDR) as usize >= code.len() {
+                    emu_state.mode = EmuMode::Stay;
+                } else {
+                    if let Err (e) = emu_state.machine.step() {
+                        match e {
+                            RiscVError::EndOfInstruction => emu_state.mode = EmuMode::Stay,
+                            _ => return Err(anyhow::Error::new(e)),
+                        }
                     }
+                    emu_state.update_data();
                 }
-                emu_state.update_data(emu_state.emu.dump_data());
-                emu_state.update_ins_selected();
             }
         }
     }
 }
 
-pub fn ui(f: &mut Frame, emu_state: &mut EmuState) {
+pub fn ui<D: DebugInterface>(f: &mut Frame, emu_state: &mut EmuState<D>) {
     let main_layout = Layout::vertical([
         Constraint::Length(3),
         Constraint::Min(0),
@@ -102,7 +106,7 @@ pub fn ui(f: &mut Frame, emu_state: &mut EmuState) {
     }
 }
 
-fn render_header(f: &mut Frame, area: Rect, emu_state: &EmuState) {
+fn render_header<D: DebugInterface>(f: &mut Frame, area: Rect, emu_state: &EmuState<D>) {
     let message = match emu_state.mode {
         EmuMode::Observation => "Observation Mode",
         EmuMode::Stay | EmuMode::Running => "Emulate Mode"
@@ -125,29 +129,27 @@ fn render_paragraph(f: &mut Frame, area: Rect, message: &str) {
     f.render_widget(paragraph, area);
 }
 
-fn render_content(f: &mut Frame, area: Rect, emu_state: &mut EmuState) {
+fn render_content<D: DebugInterface>(f: &mut Frame, area: Rect, emu_state: &mut EmuState<D>) {
     let info_layout = Layout::horizontal([
-        Constraint::Percentage(40),
-        Constraint::Percentage(30),
+        Constraint::Percentage(50),
+        Constraint::Percentage(20),
         Constraint::Percentage(30),
     ]).split(area);
 
     render_ins(f, info_layout[0], emu_state);
-    render_reg(f, info_layout[1], emu_state);
+    render_mid(f, info_layout[1], emu_state);
     render_mem(f, info_layout[2], emu_state);
 }
 
-fn render_ins(f: &mut Frame, area: Rect, emu_state: &mut EmuState) {
-    let mut items = vec![];
-    for i in (0..).step_by(4) {
-        match emu_state.emu.inspect_ins(i) {
-            Some(ins) => items.push(ListItem::new(format!("{:>4}. {}", i / 4 + 1, ins))),
-            None => {
-                break;
-            }
-        }
-    }
-
+fn render_ins<D: DebugInterface>(f: &mut Frame, area: Rect, emu_state: &mut EmuState<D>) {
+    let items: Vec<ListItem> = emu_state.ins.list.iter().map(|(addr, ins)| {
+        let marker = if emu_state.pc == *addr {
+            "PC >>"
+        } else {
+            "     "
+        };
+        ListItem::new(format!("{} {:#08x}: {}", marker, addr, ins))
+    }).collect();
     let highlight_color = match &emu_state.selected {
         Selected::Ins => (Color::Rgb(242, 242, 242), Color::Rgb(0, 50, 98)),
         _ => (Color::Rgb(0, 50, 98), Color::Rgb(253, 181, 21))
@@ -161,28 +163,39 @@ fn render_ins(f: &mut Frame, area: Rect, emu_state: &mut EmuState) {
     f.render_stateful_widget(list, area, &mut emu_state.ins.list_state);
 }
 
-fn render_reg(f: &mut Frame, area: Rect, emu_state: &mut EmuState) {
-    let items: Vec<ListItem> = emu_state.reg.list.iter().enumerate().map(|(i, data)| {
-        ListItem::new(format!(" x{:<2}: {}", i, data))
-    }).collect();
+fn render_mid<D: DebugInterface>(f: &mut Frame, area: Rect, emu_state: &mut EmuState<D>) {
+    let items: Vec<ListItem> =  match emu_state.mid_selected {
+        Mid::Reg => {
+            emu_state.reg.list.iter().enumerate().map(|(i, data)| {
+                ListItem::new(format!(" x{:<2}: {}", i, data))
+            }).collect()
+        },
+        Mid::Csr => {
+            emu_state.csr.list.iter().map(|(name, data)| {
+                ListItem::new(format!(" {:<7}: {}", name, data))
+            }).collect()
+        },
+    };
 
     let highlight_color = match (&emu_state.selected, &emu_state.mode) {
-        (Selected::Reg, EmuMode::Observation) => (Color::Rgb(242, 242, 242), Color::Rgb(0, 50, 98)),
+        (Selected::Mid(_), EmuMode::Observation) => (Color::Rgb(242, 242, 242), Color::Rgb(0, 50, 98)),
         _ => (Color::Rgb(0, 50, 98), Color::Rgb(253, 181, 21))
     };
 
     let list = List::new(items)
-        .block(Block::bordered().title("Register"))
+        .block(Block::bordered().title("Register / Csr (Press C to change)"))
         .style(Style::default().bg(Color::Rgb(0, 50, 98)).fg(Color::Rgb(253, 181, 21)))
         .highlight_style(Style::default().bg(highlight_color.0).fg(highlight_color.1));
 
     f.render_stateful_widget(list, area, &mut emu_state.reg.list_state);
 }
 
-fn render_mem(f: &mut Frame, area: Rect, emu_state: &mut EmuState) {
-    let items: Vec<ListItem> = emu_state.mem.list.iter().enumerate().map(|(i, data)| {
-        ListItem::new(format!(" 0x{:06x}: {:02x?}", i * 4, data))
-    }).collect();
+fn render_mem<D: DebugInterface>(f: &mut Frame, area: Rect, emu_state: &mut EmuState<D>) {
+    let items: Vec<ListItem> = emu_state.mem.list.chunks(4).enumerate()
+        .map(|(i, data)| {
+            ListItem::new(format!(" {:#08x}: {}", i * 16, 
+                data.iter().map(|d| format!("{:02x} ", d)).collect::<String>()))
+        }).collect();
 
     let highlight_color = match (&emu_state.selected, &emu_state.mode) {
         (Selected::Mem, EmuMode::Observation) => (Color::Rgb(242, 242, 242), Color::Rgb(0, 50, 98)),
@@ -190,7 +203,7 @@ fn render_mem(f: &mut Frame, area: Rect, emu_state: &mut EmuState) {
     };
 
     let list = List::new(items)
-        .block(Block::bordered().title("Memory"))
+        .block(Block::bordered().title("Dram"))
         .style(Style::default().bg(Color::Rgb(0, 50, 98)).fg(Color::Rgb(253, 181, 21)))
         .highlight_style(Style::default().bg(highlight_color.0).fg(highlight_color.1));
 

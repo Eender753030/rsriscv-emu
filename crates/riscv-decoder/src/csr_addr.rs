@@ -7,7 +7,7 @@ pub enum CsrAddr {
 
 impl std::fmt::Display for CsrAddr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", 
+        f.pad( 
             match self {
                 CsrAddr::Mstatus => "mstatus",
                 CsrAddr::Mtvec => "mtvec",

@@ -40,7 +40,7 @@ impl ZicsrOp {
 
 impl std::fmt::Display for ZicsrOp {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", 
+        f.pad( 
             match self {
                 ZicsrOp::Csrrw => "csrrw", ZicsrOp::Csrrs => "csrrs", ZicsrOp::Csrrc => "csrrc",
                 ZicsrOp::Csrrwi => "csrrwi", ZicsrOp::Csrrsi => "csrrsi", ZicsrOp::Csrrci => "csrrci",

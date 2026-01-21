@@ -6,7 +6,7 @@ use crate::exception::Exception;
 
 use super::bus::Bus;
 
-const PAGE_SIZE: usize = 4096;
+pub const PAGE_SIZE: usize = 4096;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Page {

@@ -30,9 +30,11 @@ impl std::fmt::Debug for Cpu {
 }
 
 impl Cpu {
-    pub fn fisrt_load(&mut self, code: &[u8]) {
-        if let Err(e) = self.bus.write_bytes(DRAM_BASE_ADDR, code.len(), code) {
-            self.trap_handle(e)
+    pub fn fisrt_load(&mut self, code: &[u8]) -> Result<(), RiscVError> {
+        if let Err(_) = self.bus.write_bytes(DRAM_BASE_ADDR, code.len(), code) {
+            Err(RiscVError::LoadCodeFailed)
+        } else {
+            Ok(())
         }
     }
 
@@ -43,22 +45,19 @@ impl Cpu {
     }
 
     pub fn run(&mut self) -> Result<(), RiscVError> {
-        loop {
-            let prev_pc = self.pc.get();
-            if let Err(e) = self.step() {
-                break Err(e);
-            }
-            if prev_pc == self.pc.get() {
-                break Ok(());
-            }
-        }
+        loop { self.step()? }
     }
  
     pub fn step(&mut self) -> Result<(), RiscVError> {
+        let prev_pc = self.pc.get();
         if let Err(execpt) = self.cycle() {        
             self.trap_handle(execpt);
         }
-        Ok(())
+        if prev_pc == self.pc.get() {
+            Err(RiscVError::EndOfInstruction)
+        } else {
+            Ok(())
+        }
     }
 
     fn cycle(&mut self) -> Result<(), Exception> {
@@ -237,9 +236,12 @@ impl Cpu {
     }
 
     pub fn reset(&mut self) {
-        self.bus.reset_ram();
-        self.pc.reset();
         self.regs.reset();
+        self.csrs.reset();
+        self.pc.reset();
+        self.bus.reset_ram();
+        
+        
     }
 }
 

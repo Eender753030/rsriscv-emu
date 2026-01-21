@@ -56,7 +56,7 @@ impl Instruction {
                 } else if op.is_jtype() {
                     format!("{:<7} x{}, {}", op, data.rd, data.imm)
                 } else if op.is_utype() {
-                    format!("{:<7} x{}, {:#x}", op, data.rd, data.imm as u32)
+                    format!("{:<7} x{}, {:#x}", op, data.rd, (data.imm as u32) >> 12)
                 } else { // rtype
                     format!("{:<7} x{}, x{}, {}", op, data.rd, data.rs1, data.rs2)
                 }

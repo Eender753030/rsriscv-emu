@@ -225,6 +225,6 @@ impl std::fmt::Display for Rv32iOp {
             Rv32iOp::Ecall => "ecall", Rv32iOp::Ebreak => "ebreak",
         };
 
-        write!(f, "{}", op_str)
+        f.pad(op_str)
     }
 }

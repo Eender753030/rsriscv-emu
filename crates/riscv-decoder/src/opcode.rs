@@ -62,6 +62,6 @@ impl std::fmt::Display for OpCode {
             OpCode::UtypeAuipc => "U-type: auipc",        
         };
         
-        write!(f, "{:#02x}({})", opcode, op_str)
+        f.pad(&format!("{:#02x}({})", opcode, op_str))
     }
 }

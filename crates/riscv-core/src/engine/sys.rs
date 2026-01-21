@@ -13,14 +13,14 @@ pub fn syscall(bus: &mut SystemBus, reg: &Registers, id: u32) -> Result<(), Risc
     match id {
         SysCallId::WRITE => {
             // System write (print)
-            let fd = reg.read(10)?;
-            let ptr = reg.read(11)?;
-            let len = reg.read(12)? as usize;
+            let fd = reg[10];
+            let ptr = reg[11];
+            let len = reg[12] as usize;
 
             if fd == 1 {
                 // stdout
                 let mut slice = vec![0; len];
-                bus.ram.read_bytes(ptr, len, &mut slice)?;
+                bus.read_bytes(ptr, len, &mut slice)?;
                 let s = String::from_utf8_lossy(&slice);
                 print!("{}", s);
             }
@@ -28,7 +28,7 @@ pub fn syscall(bus: &mut SystemBus, reg: &Registers, id: u32) -> Result<(), Risc
             Ok(())
         },
         SysCallId::EXIT => {
-            let exit_code = reg.read(10)?;
+            let exit_code = reg[10];
 
             Err(RiscVError::SystemExit(exit_code))
         },
