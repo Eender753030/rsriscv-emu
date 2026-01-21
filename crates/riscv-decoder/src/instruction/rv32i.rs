@@ -1,4 +1,4 @@
-use crate::isa::opcode::OpCode;
+use crate::opcode::OpCode;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Rv32iOp {
@@ -51,7 +51,7 @@ pub enum Rv32iOp {
 }
 
 impl Rv32iOp {
-    pub fn decode_itype(opcode: OpCode, funct3: u8, funct7: u8, funct12: u16) -> Option<Rv32iOp> {
+    pub(crate) fn decode_itype(opcode: OpCode, funct3: u8, funct7: u8, funct12: u16) -> Option<Rv32iOp> {
         match opcode {
             OpCode::Itype => match funct3 {
                 0x0 => Some(Rv32iOp::Addi),
@@ -96,7 +96,7 @@ impl Rv32iOp {
         }
     }
 
-    pub fn decode_rtype(funct3: u8, funct7: u8) -> Option<Rv32iOp> {
+    pub(crate) fn decode_rtype(funct3: u8, funct7: u8) -> Option<Rv32iOp> {
         match funct3 {
             0x0 => match funct7 {
                 0x00 => Some(Rv32iOp::Add),
@@ -118,7 +118,7 @@ impl Rv32iOp {
         }
     }
 
-    pub fn decode_stype(funct3: u8) -> Option<Rv32iOp> {
+    pub(crate) fn decode_stype(funct3: u8) -> Option<Rv32iOp> {
         match funct3 {
             0x0 => Some(Rv32iOp::Sb),
             0x1 => Some(Rv32iOp::Sh),
@@ -127,7 +127,7 @@ impl Rv32iOp {
         }
     }
 
-    pub fn decode_btype(funct3: u8) -> Option<Rv32iOp> {
+    pub(crate) fn decode_btype(funct3: u8) -> Option<Rv32iOp> {
         match funct3 {
             0x0 => Some(Rv32iOp::Beq),
             0x1 => Some(Rv32iOp::Bne),
@@ -139,11 +139,11 @@ impl Rv32iOp {
         }
     }
 
-    pub fn decode_jtype() -> Option<Rv32iOp> {
+    pub(crate) fn decode_jtype() -> Option<Rv32iOp> {
         Some(Rv32iOp::Jal)
     }
 
-    pub fn decode_utype(opcode: OpCode) -> Option<Rv32iOp> {
+    pub(crate) fn decode_utype(opcode: OpCode) -> Option<Rv32iOp> {
         match opcode {
             OpCode::UtypeAuipc => Some(Rv32iOp::Auipc),
             OpCode::UtypeLui => Some(Rv32iOp::Lui),

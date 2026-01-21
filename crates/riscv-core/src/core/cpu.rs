@@ -1,10 +1,12 @@
+use riscv_decoder::prelude::*;
+
 use super::{PC, RegisterFile};
 use crate::core::csr::CsrFile;
 use crate::device::bus::{Bus, SystemBus};
 use crate::engine::*;
 use crate::error::RiscVError;
 use crate::exception::Exception;
-use crate::isa::*;
+
 
 #[derive(Clone, PartialEq, Default)]
 pub struct Cpu {
@@ -53,7 +55,7 @@ impl Cpu {
         Ok(())
     }
 
-    pub fn cycle(&mut self) -> Result<(), Exception> {
+    fn cycle(&mut self) -> Result<(), Exception> {
         let instruction = self.fetch()?;
         
         let type_data = self.decode(instruction)?;
@@ -68,6 +70,7 @@ impl Cpu {
 
     fn decode(&self, bytes: u32) -> Result<Instruction, Exception> {
         decoder::decode(bytes)
+            .map_err(|_| Exception::IllegalInstruction)
     }
 
     fn execute(&mut self, ins: Instruction) -> Result<(), Exception> {

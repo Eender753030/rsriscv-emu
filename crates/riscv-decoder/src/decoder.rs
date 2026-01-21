@@ -1,5 +1,7 @@
-use super::opcode::{BitsOp, OpCode};
-use crate::exception::Exception;
+
+use crate::error::DecodeError;
+use crate::bits_op::BitsOp;
+use super::opcode::OpCode;
 use super::instruction::*;
 
 /// Turn 32 bits instruction to corresponding `Instruction` enum
@@ -18,7 +20,7 @@ use super::instruction::*;
 /// assert_eq!(decode(0x01), Err(Exception::IllegalInstruction));
 /// # }
 /// ```
-pub fn decode(raw: u32) -> Result<Instruction, Exception> {
+pub fn decode(raw: u32) -> Result<Instruction, DecodeError> {
     let opcode = raw.get_bits(0, 7) as u8;
     let rd = raw.get_bits(7, 5) as u8;
     let rs1 = raw.get_bits(15, 5) as u8;
@@ -40,28 +42,28 @@ pub fn decode(raw: u32) -> Result<Instruction, Exception> {
             } else if let Some(op) =  ZifenceiOp::decode(funct3) {
                 Ok(Instruction::Zifencei(op, InstructionData { rd, rs1, rs2, imm }))
             } else {
-                Err(Exception::IllegalInstruction)
+                Err(DecodeError::UnknownInstruction(itype, raw))
             }
         },
         // funct7 [6:0] | rs2 [4:0] | rs1 [4:0] | funct3 [2:0]  | rd [4:0] | opcode [6:0]
-        OpCode::Rtype => {
+        rtype @ OpCode::Rtype => {
             if let Some(op) = Rv32iOp::decode_rtype(funct3, funct7) {
                 Ok(Instruction::Base(op, InstructionData { rd, rs1, rs2, imm: 0 }))
             } else {
-                Err(Exception::IllegalInstruction)
+                Err(DecodeError::UnknownInstruction(rtype, raw))
             }
         },
         // imm [11:5] | rs2 [4:0] | rs1 [4:0] | funct3 [2:0] | imm [4:0] | opcode [6:0]
-        OpCode::Stype => {
+        stype @ OpCode::Stype => {
             let imm = (raw.get_bits_signed(25, 7) << 5) | raw.get_bits(7, 5) as i32;
             if let Some(op) = Rv32iOp::decode_stype(funct3) {
                 Ok(Instruction::Base(op, InstructionData { rd, rs1, rs2, imm }))
             } else {
-                Err(Exception::IllegalInstruction)
+                Err(DecodeError::UnknownInstruction(stype, raw))
             }
         },
         // imm[12|10:5] | rs2 [4:0] | rs1 [4:0] | funct3 [2:0] | imm[4:1|11] | opcode [6:0]
-        OpCode::Btype => {
+        btype @ OpCode::Btype => {
             let imm = (raw.get_bits_signed(31, 1) << 12)
                 | (raw.get_bits(7, 1) << 11) as i32
                 | (raw.get_bits(25, 6) << 5) as i32
@@ -69,11 +71,11 @@ pub fn decode(raw: u32) -> Result<Instruction, Exception> {
             if let Some(op) = Rv32iOp::decode_btype(funct3) {
                 Ok(Instruction::Base(op, InstructionData { rd, rs1, rs2, imm }))
             } else {
-                Err(Exception::IllegalInstruction)
+                Err(DecodeError::UnknownInstruction(btype, raw))
             }
         },
         // imm[20|10:1|11|19:12] | rd[4:0] | opcode[6:0]
-        OpCode::Jtype => {
+        jtype @ OpCode::Jtype => {
             let imm = (raw.get_bits_signed(31, 1) << 12)
                 | (raw.get_bits(12, 8) << 12) as i32
                 | (raw.get_bits(20, 1) << 11) as i32
@@ -81,7 +83,7 @@ pub fn decode(raw: u32) -> Result<Instruction, Exception> {
             if let Some(op) = Rv32iOp::decode_jtype() {
                 Ok(Instruction::Base(op, InstructionData { rd, rs1, rs2, imm }))
             } else {
-                Err(Exception::IllegalInstruction)
+                Err(DecodeError::UnknownInstruction(jtype, raw))
             }
         },
         // imm[31:12] | rd[4:0] | opcode[6:0]
@@ -91,7 +93,7 @@ pub fn decode(raw: u32) -> Result<Instruction, Exception> {
             if let Some(op) = Rv32iOp::decode_utype(utype) {
                 Ok(Instruction::Base(op, InstructionData { rd, rs1, rs2, imm }))
             } else {
-                Err(Exception::IllegalInstruction)
+                Err(DecodeError::UnknownInstruction(utype, raw))
             }
         },
     }

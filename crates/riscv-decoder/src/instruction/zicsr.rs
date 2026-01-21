@@ -10,7 +10,7 @@ pub enum ZicsrOp {
 }
 
 impl ZicsrOp {
-    pub fn decode(funct3: u8) -> Option<ZicsrOp> {
+    pub(crate) fn decode(funct3: u8) -> Option<ZicsrOp> {
         match funct3 {
             0x1 => Some(ZicsrOp::Csrrw),
             0x2 => Some(ZicsrOp::Csrrs),
@@ -22,7 +22,7 @@ impl ZicsrOp {
         }
     }
 
-    pub fn decode_ret(raw: u32) -> Option<ZicsrOp> {
+    pub(crate) fn decode_ret(raw: u32) -> Option<ZicsrOp> {
         match raw {
             0x30200073 => Some(ZicsrOp::Mret),
             _ => None
