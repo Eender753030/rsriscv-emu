@@ -20,14 +20,14 @@ pub struct SystemBus {
 const DRAM_BASE_ADDR: u32 = 0x8000_0000;
 
 impl SystemBus {
-    pub fn mapping(&self, addr: u32) -> Result<(Box<&dyn Bus>, u32), Exception> {
+    pub fn mapping(&self, addr: u32) -> Result<(&dyn Bus, u32), Exception> {
         match addr {
             DRAM_BASE_ADDR.. => {
                 let ram_addr = addr - DRAM_BASE_ADDR;
                 if ram_addr as usize >= self.ram.size {
                     Err(Exception::InstructionAccessFault)
                 } else {
-                    Ok((Box::new(&self.ram), ram_addr))
+                    Ok((&self.ram, ram_addr))
                 }
             },
             _ => Err(Exception::InstructionAccessFault),

@@ -119,9 +119,10 @@ impl Bus for Memory {
 
         let page = self.translate(addr);
         if page.is_none() {
-            panic!("Not init page");
+            Err(Exception::LoadAccessFault)
+        } else {
+            Ok(page.unwrap()[addr % PAGE_SIZE])
         }
-        Ok(page.unwrap()[addr % PAGE_SIZE])
     }
 
     fn write_byte(&mut self, addr: u32, data: u8) -> Result<(), Exception> {
@@ -146,7 +147,7 @@ impl Bus for Memory {
             let page = self.translate(curr_addr);
 
             match page {
-                None => panic!("Not init page"),
+                None => return Err(Exception::LoadAccessFault),
                 Some(p) => des[start..start + len].copy_from_slice(&p[p_start..p_start + len]),
             }
 

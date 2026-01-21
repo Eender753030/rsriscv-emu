@@ -19,10 +19,6 @@ impl RegisterFile {
         self.reg.fill(0);
     }
 
-    pub fn dump(&self) -> Vec<i32> {
-        self.reg.iter().map(|&x| x as i32).collect()
-    }
-
     pub fn iter(&self) -> IteratorRegisterFile<'_> {
         IteratorRegisterFile { id: 0, reg: &self }
     }

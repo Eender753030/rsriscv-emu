@@ -9,17 +9,13 @@ use super::instruction::*;
 /// ```rust
 /// # use riscv_core::prelude::*;
 /// # use decoder::decode;
-/// # use instruction::Instruction;
-/// # use types::Rtype;
 /// // add x5, x6, x7
 /// # fn main() {
-/// let ins: u32 = 0x007302b3;
-/// let execpt = Instruction::Rtype(Rtype {
-///     rd: 5, rs1: 6, rs2: 7, funct3: 0, funct7: 0
-/// });
+/// let raw: u32 = 0x007302b3;
+/// let execpt = Instruction::Base(Rv32iOp::Add, InstructionData{rd: 5, rs1: 6, rs2: 7, imm: 0});
 ///
-/// assert_eq!(decode(ins), Ok(execpt));
-/// assert_eq!(decode(0x01), Err(RiscVError::NotImplementedOpCode(0x01)));
+/// assert_eq!(decode(raw), Ok(execpt));
+/// assert_eq!(decode(0x01), Err(Exception::IllegalInstruction));
 /// # }
 /// ```
 pub fn decode(raw: u32) -> Result<Instruction, Exception> {

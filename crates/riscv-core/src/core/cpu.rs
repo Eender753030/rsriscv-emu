@@ -233,12 +233,4 @@ impl Cpu {
         self.pc.reset();
         self.reg.reset();
     }
-
-    pub fn dump_data(&self) -> (Vec<i32>, Vec<[u8; 4]>, u32) {
-        (
-            self.reg.dump(),
-            vec![[0; 4]; 10], // Give 0 to let compile pass
-            self.pc.get(),
-        )
-    }
 }
