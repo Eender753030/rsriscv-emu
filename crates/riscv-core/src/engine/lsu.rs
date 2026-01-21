@@ -1,9 +1,9 @@
 use crate::device::bus::SystemBus;
 use crate::exception::Exception;
 
-pub struct LSU;
+pub struct Lsu;
 
-impl LSU {
+impl Lsu {
     pub fn load(bus: &mut SystemBus, src: u32, offset: i32, num: usize) -> Result<u32, Exception> {
         let addr = src.wrapping_add_signed(offset);
         bus.read_u32_bytes(addr, num, false)

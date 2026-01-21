@@ -3,6 +3,6 @@ mod branch;
 mod lsu;
 // pub mod sys;
 
-pub use alu::ALU;
+pub use alu::Alu;
 pub use branch::Branch;
-pub use lsu::LSU;
+pub use lsu::Lsu;

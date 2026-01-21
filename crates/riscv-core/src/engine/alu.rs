@@ -1,6 +1,6 @@
-pub struct ALU;
+pub struct Alu;
 
-impl ALU {
+impl Alu {
     pub fn add(data1: u32, data2: u32) -> u32 {
         data1.wrapping_add(data2)
     }

@@ -2,10 +2,10 @@ use crate::exception::Exception;
 
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct CsrFile {
-    pub mstate: u32,
-    pub mtvec: u32,
-    pub mepc: u32,
-    pub mcause: u32,
+    mstate: u32,
+    mtvec: u32,
+    mepc: u32,
+    mcause: u32,
 }
 
 const MIE_MASK: u32 = 1 << 3;

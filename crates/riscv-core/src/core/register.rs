@@ -4,10 +4,6 @@ pub struct RegisterFile {
 }
 
 impl RegisterFile {
-    pub fn read(&mut self, id: u8) -> u32 {
-        self.reg[id as usize]
-    }
-
     pub fn write(&mut self, id: u8, data: u32) {
         if id == 0 {
             return;
@@ -20,7 +16,7 @@ impl RegisterFile {
     }
 
     pub fn iter(&self) -> IteratorRegisterFile<'_> {
-        IteratorRegisterFile { id: 0, reg: &self }
+        IteratorRegisterFile { id: 0, reg: self }
     }
 }
 

@@ -117,11 +117,10 @@ impl Bus for Memory {
     fn read_byte(&self, addr: u32) -> Result<u8, Exception> {
         let addr = addr as usize;
 
-        let page = self.translate(addr);
-        if page.is_none() {
-            Err(Exception::LoadAccessFault)
+        if let Some(page) = self.translate(addr) {
+            Ok(page[addr % PAGE_SIZE])
         } else {
-            Ok(page.unwrap()[addr % PAGE_SIZE])
+            Err(Exception::LoadAccessFault)
         }
     }
 

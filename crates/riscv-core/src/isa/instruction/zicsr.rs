@@ -17,7 +17,7 @@ impl ZicsrOp {
             0x3 => Some(ZicsrOp::Csrrc),
             0x5 => Some(ZicsrOp::Csrrwi),
             0x6 => Some(ZicsrOp::Csrrsi),
-            0x7 => Some(ZicsrOp::Csrrwi),
+            0x7 => Some(ZicsrOp::Csrrci),
             _ => None
         }
     }

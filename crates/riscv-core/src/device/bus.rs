@@ -3,8 +3,9 @@ use crate::exception::Exception;
 use super::memory::Memory;
 
 pub trait Bus {
+    #[allow(unused)]
     fn read_byte(&self, addr: u32) -> Result<u8, Exception>;
-
+    #[allow(unused)]
     fn write_byte(&mut self, addr: u32, data: u8) -> Result<(), Exception>;
 
     fn read_bytes(&self, addr: u32, size: usize, des: &mut [u8]) -> Result<(), Exception>;
@@ -34,14 +35,14 @@ impl SystemBus {
         }
     }
 
-    pub fn mapping_mut(&mut self, addr: u32) -> Result<(Box<&mut dyn Bus>, u32), Exception> {
+    pub fn mapping_mut(&mut self, addr: u32) -> Result<(&mut dyn Bus, u32), Exception> {
         match addr {
             DRAM_BASE_ADDR.. => {
                 let ram_addr = addr - DRAM_BASE_ADDR;
                 if ram_addr as usize >= self.ram.size {
                     Err(Exception::InstructionAccessFault)
                 } else {
-                    Ok((Box::new(&mut self.ram), ram_addr))
+                    Ok((&mut self.ram, ram_addr))
                 }
             },
             _ => Err(Exception::InstructionAccessFault),
@@ -66,6 +67,7 @@ impl SystemBus {
         Ok(u32::from_le_bytes(four_bytes))
     }
 
+    #[allow(unused)]
     pub fn write_u32(&mut self, addr: u32, data: u32) -> Result<(), Exception> {
         self.write_u32_bytes(addr, data, 4)
     }

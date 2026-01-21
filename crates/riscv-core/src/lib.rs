@@ -1,7 +1,11 @@
-pub mod core;
-pub mod device;
-pub mod engine;
+mod core;
+mod device;
+mod engine;
+mod isa;
+
 pub mod error;
 pub mod exception;
-pub mod isa;
+
+pub use core::RiscV;
+
 pub mod prelude;
