@@ -5,6 +5,7 @@ pub enum Exception {
     IllegalInstruction = 2,
     Breakpoint = 3,
     LoadAddressMisaligned = 4,
+    LoadAccessFault = 5,
     StoreAddressMisaligned = 6,
     EnvironmentCallFromMMode = 11,
 }
