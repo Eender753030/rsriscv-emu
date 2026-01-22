@@ -2,25 +2,25 @@ use crate::exception::Exception;
 
 use super::Device;
 use super::memory::{Memory, PAGE_SIZE};
-// use super::uart::Uart;
+use super::uart::Uart;
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct SystemBus {
-    // uart: Uart,
+    uart: Uart,
     ram: Memory,
 }
 
-// pub const UART_BASE: u32 = 0x1000_0000;
-// pub const UART_END: u32 = 0x1000_0000 + 0xFF;
+pub const UART_BASE: u32 = 0x1000_0000;
+pub const UART_END: u32 = 0x1000_00FF;
 pub const DRAM_BASE_ADDR: u32 = 0x8000_0000;
 
 impl SystemBus {
     pub fn mapping(&self, addr: u32) -> Result<(&dyn Device, u32), Exception> {
         match addr {
-            // UART_BASE..=UART_END => {
-            //    let uart_addr = addr - UART_BASE;
-            //    Ok((&self.uart, uart_addr))
-            // }
+            UART_BASE..=UART_END => {
+               let uart_addr = addr - UART_BASE;
+               Ok((&self.uart, uart_addr))
+            }
             DRAM_BASE_ADDR.. => {
                 let ram_addr = addr - DRAM_BASE_ADDR;
                 if ram_addr as usize >= self.ram.size {
@@ -35,10 +35,10 @@ impl SystemBus {
 
     pub fn mapping_mut(&mut self, addr: u32) -> Result<(&mut dyn Device, u32), Exception> {
         match addr {
-            // UART_BASE..=UART_END => {
-            //     let uart_addr = addr - UART_BASE;
-            //     Ok((&mut self.uart, uart_addr))
-            // }
+            UART_BASE..=UART_END => {
+                let uart_addr = addr - UART_BASE;
+                Ok((&mut self.uart, uart_addr))
+            }
             DRAM_BASE_ADDR.. => {
                 let ram_addr = addr - DRAM_BASE_ADDR;
                 if ram_addr as usize >= self.ram.size {
