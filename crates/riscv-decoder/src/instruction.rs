@@ -2,10 +2,12 @@
 mod rv32i;
 mod zicsr;
 mod zifencei;
+mod m;
 
 pub use rv32i::Rv32iOp;
 pub use zicsr::ZicsrOp;
 pub use zifencei::ZifenceiOp;
+pub use m::MOp;
 
 use crate::csr_addr::CsrAddr;
 
@@ -23,6 +25,7 @@ pub enum Instruction {
     Base(Rv32iOp, InstructionData),
     Ziscr(ZicsrOp, InstructionData),
     Zifencei(ZifenceiOp, InstructionData),
+    M(MOp, InstructionData),
 }
 
 impl std::fmt::Display for Instruction {
@@ -74,6 +77,9 @@ impl std::fmt::Display for Instruction {
             },
             Instruction::Zifencei(op, _) => {
                 format!("{:<7}", op)
+            },
+            Instruction::M(op, data) => {
+                format!("{:<7} x{}, x{}, x{}", op, data.rd, data.rs1, data.rs2)
             }
         })
     }

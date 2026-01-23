@@ -49,6 +49,8 @@ pub fn decode(raw: u32) -> Result<Instruction, DecodeError> {
         rtype @ OpCode::Rtype => {
             if let Some(op) = Rv32iOp::decode_rtype(funct3, funct7) {
                 Ok(Instruction::Base(op, InstructionData { rd, rs1, rs2, imm: 0 }))
+            } else if let Some(op) = MOp::decode(funct3, funct7) {
+                Ok(Instruction::M(op, InstructionData { rd, rs1, rs2, imm: 0 }))
             } else {
                 Err(DecodeError::UnknownInstruction(rtype, raw))
             }
