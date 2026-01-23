@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct LoadInfo {
     pub pc_entry: u32,
@@ -9,6 +11,10 @@ pub struct LoadInfo {
     pub bss: Option<(u32, usize)>,
 
     pub other: Option<Vec<(Vec<u8>, u32)>>,
+
+    pub header_sections: Option<Vec<(String, u32)>>,
+
+    pub symbols: Option<HashMap<u32, String>>,
 }
 
 impl LoadInfo {
