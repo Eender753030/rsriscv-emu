@@ -5,4 +5,5 @@ edition = "2024"
 
 [dependencies]
 thiserror = "2"
+modular-bitfield = "0.13"
 riscv-decoder = {workspace = true}

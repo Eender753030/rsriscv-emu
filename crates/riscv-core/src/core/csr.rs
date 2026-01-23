@@ -1,8 +1,38 @@
+use modular_bitfield::prelude::*;
 use crate::exception::Exception;
 
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
+#[bitfield]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Mstate {
+    #[skip] __: B2,
+    mie: B1,
+    #[skip] __: B3,
+    mpie: B1,
+    #[skip] __: B25,
+}
+
+impl Mstate {
+    fn reset(&mut self) {
+        self.set_mie(0);
+        self.set_mpie(0);
+    }
+}
+
+impl From<Mstate> for u32 {
+    fn from(value: Mstate) -> Self {
+        u32::from_le_bytes(value.into_bytes())
+    }
+}
+
+impl Default for Mstate {
+    fn default() -> Self {
+        Mstate::new()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct CsrFile {
-    mstate: u32,
+    mstate: Mstate,
     mie: u32,
     mtvec: u32,
     mepc: u32,
@@ -18,10 +48,7 @@ impl CsrFile {
         Ok(match CsrAddr::try_from(addr)? {
             CsrAddr::Ustatus => 0,
             CsrAddr::Satp => 0,
-            CsrAddr::Mstatus => {
-                let mask = MIE_MASK | MPIE_MASK;
-                self.mstate & mask
-            }
+            CsrAddr::Mstatus => self.mstate.into(),
             CsrAddr::Medeleg => 0,
             CsrAddr::Mideleg => 0,
             CsrAddr::Mie => self.mie,
@@ -40,8 +67,10 @@ impl CsrFile {
             CsrAddr::Ustatus => {},
             CsrAddr::Satp => {},
             CsrAddr::Mstatus => {
-                let mask = MIE_MASK | MPIE_MASK;
-                self.mstate = (self.mstate & !mask) | (data & mask);
+                let mie = ((data & MIE_MASK) >> 3) as u8;
+                let mpie = ((data & MPIE_MASK) >> 7) as u8;
+                self.mstate.set_mie(mie);
+                self.mstate.set_mpie(mpie);
             },
             CsrAddr::Medeleg => {},
             CsrAddr::Mideleg => {},
@@ -61,19 +90,19 @@ impl CsrFile {
     pub fn trap_entry(&mut self, curr_pc: u32, except_code: Exception) -> u32 {
         self.mepc = curr_pc;
         self.mcause = except_code.into();
-        let mask = MIE_MASK | MPIE_MASK;
-        self.mstate = (self.mstate & !mask) | ((self.mstate & MIE_MASK) << 4) & (!MIE_MASK);
+        self.mstate.set_mpie(self.mstate.mie());
+        self.mstate.set_mie(0);
         self.mtvec
     } 
 
     pub fn trap_ret(&mut self) -> u32 {
-        let mask = MIE_MASK | MPIE_MASK;
-        self.mstate = (self.mstate & !mask) | ((self.mstate & MPIE_MASK) >> 4) | MPIE_MASK;
+        self.mstate.set_mie(self.mstate.mpie());
+        self.mstate.set_mpie(1);
         self.mepc
     } 
 
     pub fn reset(&mut self) {
-        self.mstate = 0;
+        self.mstate.reset();
         self.mtvec = 0;
         self.mepc = 0;
         self.mcause = 0;
@@ -81,7 +110,7 @@ impl CsrFile {
 
     pub fn inspect(&self) -> Vec<(String, u32)> {
         vec![
-            ("mstatus".to_string(), self.mstate),
+            ("mstatus".to_string(), self.mstate.into()),
             ("mtvec".to_string(), self.mtvec),
             ("mepc".to_string(), self.mepc),
             ("mcause".to_string(), self.mcause),
