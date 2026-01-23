@@ -1,7 +1,6 @@
 use riscv_decoder::prelude::*;
 
-use super::{PC, RegisterFile};
-use crate::core::csr::CsrFile;
+use super::{PC, RegisterFile, CsrFile, PrivilegeMode};
 use crate::device::bus::SystemBus;
 use crate::device::Device;
 use crate::engine::*;
@@ -11,6 +10,7 @@ use crate::debug::*;
 
 #[derive(Clone, PartialEq, Default)]
 pub struct Cpu {
+    mode: PrivilegeMode,
     regs: RegisterFile,
     pc: PC,
     csrs: CsrFile,
@@ -92,15 +92,18 @@ impl Cpu {
                     return Ok(());
                 }
             },
-            Instruction::Ziscr(op, data) => {
-                if self.execute_zicsr(op, data)? {
-                    return Ok(());
-                }
+            Instruction::Privileged(op) => {
+                self.execute_privileged(op);
+                return Ok(())
             },
-            Instruction::Zifencei(_, _) => {},
             Instruction::M(op, data) => {
                 self.execute_m(op, data);
             }
+            Instruction::Ziscr(op, data) => {
+                self.execute_zicsr(op, data)?;
+            },
+            Instruction::Zifencei(_, _) => {},
+            
         }
         self.pc.step();
         Ok(())
@@ -178,65 +181,17 @@ impl Cpu {
         Ok(branch | jump)
     }
 
-    fn execute_zicsr(&mut self, op: ZicsrOp, data: InstructionData) -> Result<bool, Exception> {
-        let addr = (data.imm & 0xfff) as u16;
-        let rs1_data = self.regs[data.rs1];
-        let zimm = data.rs1 as u32;
-
-        match op {
-            ZicsrOp::Csrrw => {
-                if data.rd != 0 {
-                    let csr_data = self.csrs.read(addr)?;
-                    self.csrs.write(addr, rs1_data)?;
-                    self.regs.write(data.rd, csr_data);
-                } else {
-                    self.csrs.write(addr, rs1_data)?;
-                }
+    fn execute_privileged(&mut self, op: PrivilegeOp) {
+        let (mode, pc) = match op {
+            PrivilegeOp::Mret => {
+                self.csrs.trap_mret()
             },
-            ZicsrOp::Csrrs => {
-                let csr_data = self.csrs.read(addr)?;
-                if data.rs1 != 0{
-                    self.csrs.write(addr, rs1_data | csr_data)?;
-                }
-                self.regs.write(data.rd, csr_data);
-            },
-            ZicsrOp::Csrrc => {
-                let csr_data = self.csrs.read(addr)?;
-                if data.rs1 != 0{
-                    self.csrs.write(addr, (!rs1_data) & csr_data)?;
-                }
-                self.regs.write(data.rd, csr_data);
-            },
-            ZicsrOp::Csrrwi => {
-                if data.rd != 0 {
-                    let csr_data = self.csrs.read(addr)?;
-                    self.csrs.write(addr, zimm)?;
-                    self.regs.write(data.rd, csr_data);
-                } else {
-                    self.csrs.write(addr, zimm)?;
-                } 
-            },
-            ZicsrOp::Csrrsi => {
-                let csr_data = self.csrs.read(addr)?;  
-                if zimm != 0{
-                    self.csrs.write(addr, zimm | csr_data)?;
-                }          
-                self.regs.write(data.rd, csr_data);      
-            },
-            ZicsrOp::Csrrci => {
-                let csr_data = self.csrs.read(addr)?;
-                if zimm != 0{
-                    self.csrs.write(addr, (!zimm) & csr_data)?;
-                }        
-                self.regs.write(data.rd, csr_data);
-            },
-            ZicsrOp::Mret => {
-                self.pc.directed_addressing(self.csrs.trap_ret());
-                return Ok(true);
+            PrivilegeOp::Sret => {
+                self.csrs.trap_sret()
             }
-        }
-        
-        Ok(false)
+        };
+        self.pc.directed_addressing(pc);
+        self.mode = mode;
     }
 
     fn execute_m(&mut self, op: MOp, data: InstructionData) {
@@ -257,11 +212,70 @@ impl Cpu {
         )
     }
 
+    fn execute_zicsr(&mut self, op: ZicsrOp, data: InstructionData) -> Result<(), Exception> {
+        let addr = (data.imm & 0xfff) as u16;
+        let rs1_data = self.regs[data.rs1];
+        let zimm = data.rs1 as u32;
+
+        match op {
+            ZicsrOp::Csrrw => {
+                if data.rd != 0 {
+                    let csr_data = self.csrs.read(addr, self.mode)?;
+                    self.csrs.write(addr, rs1_data, self.mode)?;
+                    self.regs.write(data.rd, csr_data);
+                } else {
+                    self.csrs.write(addr, rs1_data, self.mode)?;
+                }
+            },
+            ZicsrOp::Csrrs => {
+                let csr_data = self.csrs.read(addr, self.mode)?;
+                if data.rs1 != 0{
+                    self.csrs.write(addr, rs1_data | csr_data, self.mode)?;
+                }
+                self.regs.write(data.rd, csr_data);
+            },
+            ZicsrOp::Csrrc => {
+                let csr_data = self.csrs.read(addr, self.mode)?;
+                if data.rs1 != 0{
+                    self.csrs.write(addr, (!rs1_data) & csr_data, self.mode)?;
+                }
+                self.regs.write(data.rd, csr_data);
+            },
+            ZicsrOp::Csrrwi => {
+                if data.rd != 0 {
+                    let csr_data = self.csrs.read(addr, self.mode)?;
+                    self.csrs.write(addr, zimm, self.mode)?;
+                    self.regs.write(data.rd, csr_data);
+                } else {
+                    self.csrs.write(addr, zimm, self.mode)?;
+                } 
+            },
+            ZicsrOp::Csrrsi => {
+                let csr_data = self.csrs.read(addr, self.mode)?;  
+                if zimm != 0{
+                    self.csrs.write(addr, zimm | csr_data, self.mode)?;
+                }          
+                self.regs.write(data.rd, csr_data);      
+            },
+            ZicsrOp::Csrrci => {
+                let csr_data = self.csrs.read(addr, self.mode)?;
+                if zimm != 0{
+                    self.csrs.write(addr, (!zimm) & csr_data, self.mode)?;
+                }        
+                self.regs.write(data.rd, csr_data);
+            }
+        }    
+        Ok(())
+    }
+
     fn trap_handle(&mut self, except: Exception) {
-        self.pc.directed_addressing(self.csrs.trap_entry(self.pc.get(), except));
+        self.pc.directed_addressing(
+            self.csrs.trap_entry(self.pc.get(), except, self.mode)
+        );
     }
 
     pub fn reset(&mut self) {
+        self.mode = PrivilegeMode::default();
         self.regs.reset();
         self.csrs.reset();
         self.pc.reset();
