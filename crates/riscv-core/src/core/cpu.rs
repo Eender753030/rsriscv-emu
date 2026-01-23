@@ -82,7 +82,7 @@ impl Cpu {
 
     fn decode(&self, bytes: u32) -> Result<Instruction, Exception> {
         decoder::decode(bytes)
-            .map_err(|_| Exception::IllegalInstruction)
+            .map_err(|_| Exception::IllegalInstruction(bytes))
     }
 
     fn execute(&mut self, ins: Instruction) -> Result<(), Exception> {
@@ -269,9 +269,9 @@ impl Cpu {
     }
 
     fn trap_handle(&mut self, except: Exception) {
-        self.pc.directed_addressing(
-            self.csrs.trap_entry(self.pc.get(), except, self.mode)
-        );
+        let (mode, pc) = self.csrs.trap_entry(self.pc.get(), except, self.mode);
+        self.pc.directed_addressing(pc);
+        self.mode = mode;
     }
 
     pub fn reset(&mut self) {

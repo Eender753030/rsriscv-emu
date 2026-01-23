@@ -117,7 +117,7 @@ impl Device for Memory {
         if let Some(page) = self.translate(addr) {
             Ok(page[addr % PAGE_SIZE])
         } else {
-            Err(Exception::LoadAccessFault)
+            Err(Exception::LoadAccessFault(addr as u32))
         }
     }
 
@@ -142,7 +142,7 @@ impl Device for Memory {
 
             let page = self.translate(curr_addr);
             match page {
-                None => return Err(Exception::LoadAccessFault),
+                None => return Err(Exception::LoadAccessFault(curr_addr as u32)),
                 Some(p) => des[start..start + len].copy_from_slice(&p[p_start..p_start + len]),
             }
 

@@ -88,8 +88,8 @@ const MODE_MASK: u16 = 3 << 8;
 
 impl CsrFile {
     pub fn read(&mut self, addr: u16, mode: PrivilegeMode) -> Result<u32, Exception> {    
-        if (mode as u16) < (addr & MODE_MASK) {
-            Err(Exception::IllegalInstruction)
+        if (mode as u16) < ((addr & MODE_MASK) >> 8) {
+            Err(Exception::IllegalInstruction(addr as u32))
         } else {
             Ok(match CsrAddr::try_from(addr)? {
                 CsrAddr::Ustatus => 0,
@@ -122,8 +122,8 @@ impl CsrFile {
     }
 
     pub fn write(&mut self, addr: u16, data: u32, mode: PrivilegeMode) -> Result<(), Exception> {
-        if (mode as u16) < (addr & MODE_MASK) {
-            Err(Exception::IllegalInstruction)
+        if (mode as u16) < ((addr & MODE_MASK) >> 8) {
+            Err(Exception::IllegalInstruction(addr as u32))
         } else {
             match CsrAddr::try_from(addr)? {
                 CsrAddr::Ustatus => {},
@@ -150,13 +150,13 @@ impl CsrFile {
                 CsrAddr::Mip => self.mip = data,
                 CsrAddr::Pmpcfg0 => {},
                 CsrAddr::Pmpaddr0 => {}, 
-                CsrAddr::Mhartid => return Err(Exception::IllegalInstruction),
+                CsrAddr::Mhartid => return Err(Exception::IllegalInstruction(addr as u32)),
             };
             Ok(())
         }
     }
 
-    pub fn trap_entry(&mut self, curr_pc: u32, except_code: Exception, mode :PrivilegeMode) -> u32 {
+    pub fn trap_entry(&mut self, curr_pc: u32, except_code: Exception, mode: PrivilegeMode) -> (PrivilegeMode, u32) {
         let target_mode = match mode {
             PrivilegeMode::Machine => PrivilegeMode::Machine,
             PrivilegeMode::Supervisor | PrivilegeMode::User => {
@@ -167,37 +167,45 @@ impl CsrFile {
                 }
             }
         };
+
+        let tval = match except_code {
+            Exception::IllegalInstruction(raw) => raw,
+            Exception::LoadAccessFault(addr) => addr,
+            _ => 0
+        };
    
         match target_mode {
             PrivilegeMode::Machine => {
                 self.mepc = curr_pc;
                 self.mcause = except_code.into();
-                // self.mtval = ? 
+                self.mtval = tval;
                 self.mstatus.set_mpie(self.mstatus.mie());
                 self.mstatus.set_mie(0);
                 self.mstatus.set_mpp(mode as u8);
                 let base_addr = self.mtvec & !0b11;
+                (target_mode,
                 if self.mtvec & 0b11 == 0b01 {
                     base_addr + 4 * u32::from(except_code)
                 } else {
                     base_addr
-                }
+                })
             },
             PrivilegeMode::Supervisor => {
                 self.sepc = curr_pc;
                 self.scause = except_code.into();
-                // self.stval = ? 
+                self.stval = tval;
                 self.mstatus.set_spie(self.mstatus.sie());
                 self.mstatus.set_sie(0);
                 self.mstatus.set_spp(mode as u8);
                 let base_addr = self.stvec & !0b11;
+                (target_mode,
                 if self.stvec & 0b11 == 0b01 {
                     base_addr + 4 * u32::from(except_code)
                 } else {
                     base_addr
-                }
+                })
             },
-            PrivilegeMode::User => {0},
+            PrivilegeMode::User => {(PrivilegeMode::User, 0)},
         }
     } 
 
@@ -318,7 +326,7 @@ impl TryFrom<u16> for CsrAddr {
             0x3b0 => Ok(CsrAddr::Pmpaddr0),
             0xf14 => Ok(CsrAddr::Mhartid), 
 
-            _ => Err(Exception::IllegalInstruction),
+            _ => Err(Exception::IllegalInstruction(value as u32)),
         }
     }
 }
