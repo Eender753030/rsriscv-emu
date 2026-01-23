@@ -54,7 +54,7 @@ impl <T> Default for ListStateRecord<T> {
 #[derive(Debug, PartialEq, Eq)]
 pub struct EmuState<'a, D: DebugInterface> {
     pub machine: &'a mut D,
-    pub ins: ListStateRecord<(u32, String)>,
+    pub ins: ListStateRecord<String>,
     pub reg: ListStateRecord<u32>,
     pub csr: ListStateRecord<(String, u32)>,
     pub mem: ListStateRecord<u8>,
@@ -69,11 +69,11 @@ pub struct EmuState<'a, D: DebugInterface> {
 }
 
 impl <'a, D: DebugInterface> EmuState<'a, D> {
-    pub fn new(machine: &'a mut D, code_len: usize) -> Self {
+    pub fn new(machine: &'a mut D, code_len: usize, ins_list: Vec<String>) -> Self {
         let machine_info = machine.get_info();
         let (_, dram_base, page_size) = machine_info.get_info();
 
-        let ins = ListStateRecord::new(machine.inspect_ins(dram_base, code_len));
+        let ins = ListStateRecord::new(ins_list);
         let reg = ListStateRecord::new(machine.inspect_regs().into_iter().collect());
         let csr = ListStateRecord::new(machine.inspect_csrs());
         let mem = ListStateRecord::new(machine.inspect_mem(dram_base, page_size));

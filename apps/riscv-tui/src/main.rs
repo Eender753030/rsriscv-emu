@@ -4,6 +4,7 @@ mod ui;
 pub mod error;
 
 use riscv_core::RiscV;
+use riscv_disasm::disasm;
 use riscv_loader::load;
 
 use anyhow::Result;
@@ -34,13 +35,15 @@ fn main() -> Result<()> {
             machine.load(*addr, data)?
         }
     }
+    let ins_list = disasm::disassembler(&info);
     
     let (code, u32) = &info.code[0];
     // Go into the TUI display loop
-    ui::tui_loop(&mut machine, code, *u32)?;
+    ui::tui_loop(&mut machine, code, *u32, ins_list)?;
 
     if cfg!(debug_assertions) {
         println!("{:?}", machine);
+        println!("{:?}", info);
     }   
 
     Ok(())

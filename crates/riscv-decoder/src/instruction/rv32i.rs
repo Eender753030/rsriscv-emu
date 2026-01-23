@@ -130,7 +130,7 @@ impl Rv32iOp {
         }
     }
 
-    pub(crate) fn is_itype_ar(&self) -> bool {
+    pub fn is_itype_ar(&self) -> bool {
         matches!(self, 
                 Rv32iOp::Addi | Rv32iOp::Slli |
                 Rv32iOp::Slti | Rv32iOp::Sltiu |
@@ -140,29 +140,28 @@ impl Rv32iOp {
         )
     }
 
-    pub(crate) fn is_itype_load(&self) -> bool {
+    pub fn is_itype_load(&self) -> bool {
         matches!(self, 
             Rv32iOp::Lb | Rv32iOp::Lh | Rv32iOp::Lw
             | Rv32iOp::Lbu | Rv32iOp::Lhu
         )
     }
 
-    pub(crate) fn is_itype_jump(&self) -> bool {
+    pub fn is_itype_jump(&self) -> bool {
         self == &Rv32iOp::Jalr
     }
 
-    pub(crate) fn is_itype_system(&self) -> bool {
+    pub fn is_itype_system(&self) -> bool {
         matches!(self,
             Rv32iOp::Ecall | Rv32iOp::Ebreak
         )
 
     }
-    pub(crate) fn is_itype_fence(&self) -> bool {
+    pub fn is_itype_fence(&self) -> bool {
         self == &Rv32iOp::Fence
     }
 
-    #[allow(unused)]
-    pub(crate) fn is_rtype(&self) -> bool {
+    pub fn is_rtype(&self) -> bool {
         matches!(self, 
             Rv32iOp:: Add | Rv32iOp:: Sub |
             Rv32iOp:: Sll | Rv32iOp:: Slt |
@@ -172,13 +171,13 @@ impl Rv32iOp {
         )
     }
 
-    pub(crate) fn is_stype(&self) -> bool {
+    pub fn is_stype(&self) -> bool {
         matches!(self, 
             Rv32iOp:: Sb| Rv32iOp::Sh | Rv32iOp::Sw
         )
     }
 
-    pub(crate) fn is_btype(&self) -> bool {
+    pub fn is_btype(&self) -> bool {
         matches!(self, 
             Rv32iOp:: Beq | Rv32iOp:: Bne | 
             Rv32iOp:: Blt | Rv32iOp:: Bge |
@@ -186,15 +185,14 @@ impl Rv32iOp {
         )
     }
 
-    pub(crate) fn is_jtype(&self) -> bool {
+    pub fn is_jtype(&self) -> bool {
         self == &Rv32iOp::Jal
     }
 
-    pub(crate) fn is_utype(&self) -> bool {
+    pub fn is_utype(&self) -> bool {
         matches!(self, 
             Rv32iOp::Lui | Rv32iOp::Auipc)
     }
-
 }
 
 impl std::fmt::Display for Rv32iOp {

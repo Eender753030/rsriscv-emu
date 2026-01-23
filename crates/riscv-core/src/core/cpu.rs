@@ -302,29 +302,6 @@ impl DebugInterface for Cpu {
         self.csrs.inspect()
     }
 
-    fn inspect_ins(&self, addr: u32, count: usize) -> Vec<(u32, String)> {
-        let mut ins_list = Vec::with_capacity(count);
-        let mut curr_addr = addr;
-
-        for _ in 0..count {
-            let res = self.bus.read_u32(curr_addr)
-                .map_err(|_| ())
-                .and_then(|raw| 
-                    decoder::decode(raw)
-                    .map_err(|_| ())
-                )
-                .map(|ins| ins_list.push((curr_addr, ins.to_string())));
-
-            if res.is_err() {
-                ins_list.push((curr_addr, "(Unknown)".to_string()));
-            }
-
-            curr_addr += 4;
-        }
-
-        ins_list
-    }
-
     fn inspect_mem(&self, addr: u32, len: usize) -> Vec<u8> {
         let mut mem: Vec<u8> = vec![0; len]; 
         // Todo: The execption debuger layout

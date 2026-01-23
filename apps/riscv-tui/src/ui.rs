@@ -26,8 +26,8 @@ const EMULATE_HINT_MESSAGE: &str = "Q: Leave   TAB: Change mode    S: Single ste
 // const BERKELEY_BLUE: (u8, u8, u8) = (0, 50, 98);
 // const CALIFORNIA_GOLD: (u8, u8, u8) = (253, 181, 21);
 
-pub fn tui_loop(machine: &mut RiscV, code: &[u8], addr: u32) -> Result<()> {
-    let mut emu_state = EmuState::new(machine, code.len() / 4);
+pub fn tui_loop(machine: &mut RiscV, code: &[u8], addr: u32, ins_list: Vec<String>) -> Result<()> {
+    let mut emu_state = EmuState::new(machine, code.len() / 4, ins_list);
     let mut emu_terminal = terminal::EmuTerminal::new()?;
     
     loop {
@@ -157,13 +157,24 @@ fn render_content<D: DebugInterface>(f: &mut Frame, area: Rect, emu_state: &mut 
 }
 
 fn render_ins<D: DebugInterface>(f: &mut Frame, area: Rect, emu_state: &mut EmuState<D>) {
-    let items: Vec<ListItem> = emu_state.ins.list.iter().map(|(addr, ins)| {
-        let marker = if emu_state.pc == *addr {
-            "PC >>"
-        } else {
-            "     "
+    let mut offset = 0;
+
+    let items: Vec<ListItem> = emu_state.ins.list.iter().enumerate()
+        .map(|(i, ins)| {
+        let marker = if ins.ends_with(':') {
+            offset += 1;
+            ""
+        } else { 
+            if (emu_state.pc - DRAM_BASE_ADDR) / 4 == ((i - offset) as u32) {
+                if emu_state.mode != EmuMode::Observation {
+                    emu_state.ins.list_state.select(Some(i));
+                }
+                "PC >>"
+            } else {
+                "     "
+            }
         };
-        ListItem::new(format!("{} {:#010x}: {}", marker, addr, ins))
+        ListItem::new(format!("{}{}", marker, ins))
     }).collect();
     let highlight_color = match (&emu_state.selected , &emu_state.mode) {
         (Selected::Ins, EmuMode::Observation) => (Color::Rgb(242, 242, 242), Color::Rgb(0, 50, 98)),
