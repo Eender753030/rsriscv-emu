@@ -3,7 +3,7 @@ use crate::exception::Exception;
 
 #[bitfield]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct Mstate {
+struct Mstatus {
     #[skip] __: B2,
     mie: B1,
     #[skip] __: B3,
@@ -11,28 +11,28 @@ struct Mstate {
     #[skip] __: B25,
 }
 
-impl Mstate {
+impl Mstatus {
     fn reset(&mut self) {
         self.set_mie(0);
         self.set_mpie(0);
     }
 }
 
-impl From<Mstate> for u32 {
-    fn from(value: Mstate) -> Self {
+impl From<Mstatus> for u32 {
+    fn from(value: Mstatus) -> Self {
         u32::from_le_bytes(value.into_bytes())
     }
 }
 
-impl Default for Mstate {
+impl Default for Mstatus {
     fn default() -> Self {
-        Mstate::new()
+        Mstatus::new()
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct CsrFile {
-    mstate: Mstate,
+    mstatus: Mstatus,
     mie: u32,
     mtvec: u32,
     mepc: u32,
@@ -48,7 +48,7 @@ impl CsrFile {
         Ok(match CsrAddr::try_from(addr)? {
             CsrAddr::Ustatus => 0,
             CsrAddr::Satp => 0,
-            CsrAddr::Mstatus => self.mstate.into(),
+            CsrAddr::Mstatus => self.mstatus.into(),
             CsrAddr::Medeleg => 0,
             CsrAddr::Mideleg => 0,
             CsrAddr::Mie => self.mie,
@@ -69,8 +69,8 @@ impl CsrFile {
             CsrAddr::Mstatus => {
                 let mie = ((data & MIE_MASK) >> 3) as u8;
                 let mpie = ((data & MPIE_MASK) >> 7) as u8;
-                self.mstate.set_mie(mie);
-                self.mstate.set_mpie(mpie);
+                self.mstatus.set_mie(mie);
+                self.mstatus.set_mpie(mpie);
             },
             CsrAddr::Medeleg => {},
             CsrAddr::Mideleg => {},
@@ -90,19 +90,19 @@ impl CsrFile {
     pub fn trap_entry(&mut self, curr_pc: u32, except_code: Exception) -> u32 {
         self.mepc = curr_pc;
         self.mcause = except_code.into();
-        self.mstate.set_mpie(self.mstate.mie());
-        self.mstate.set_mie(0);
+        self.mstatus.set_mpie(self.mstatus.mie());
+        self.mstatus.set_mie(0);
         self.mtvec
     } 
 
     pub fn trap_ret(&mut self) -> u32 {
-        self.mstate.set_mie(self.mstate.mpie());
-        self.mstate.set_mpie(1);
+        self.mstatus.set_mie(self.mstatus.mpie());
+        self.mstatus.set_mpie(1);
         self.mepc
     } 
 
     pub fn reset(&mut self) {
-        self.mstate.reset();
+        self.mstatus.reset();
         self.mtvec = 0;
         self.mepc = 0;
         self.mcause = 0;
@@ -110,10 +110,18 @@ impl CsrFile {
 
     pub fn inspect(&self) -> Vec<(String, u32)> {
         vec![
-            ("mstatus".to_string(), self.mstate.into()),
+            ("ustatus".to_string(), 0),
+            ("stap".to_string(), 0),
+            ("mstatus".to_string(), self.mstatus.into()),
+            ("medeleg".to_string(), 0),
+            ("mideleg".to_string(), 0),
+            ("mie".to_string(), 0),
             ("mtvec".to_string(), self.mtvec),
             ("mepc".to_string(), self.mepc),
             ("mcause".to_string(), self.mcause),
+            ("pmpcfg0".to_string(), 0),
+            ("pmpaddr0".to_string(), 0),
+            ("mnscratch".to_string(), self.mnscratch),
             ("mhartid".to_string(), 0),
         ]
     }
