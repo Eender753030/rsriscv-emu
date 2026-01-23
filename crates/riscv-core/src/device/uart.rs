@@ -15,14 +15,11 @@ impl Device for Uart {
     }
 
     fn write_byte(&mut self, addr: u32, data: u8) -> Result<(), crate::prelude::Exception> {
-        match addr {
-            0x00 => {
-                print!("{}", data as char);
+        if addr == 0x00 { 
+            print!("{}", data as char);
 
-                use std::io::Write;
-                std::io::stdout().flush().unwrap();
-            }
-            _ => {}
+            use std::io::Write;
+            std::io::stdout().flush().unwrap();
         }
         Ok(())
     }

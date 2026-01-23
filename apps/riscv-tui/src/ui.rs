@@ -26,7 +26,7 @@ const EMULATE_HINT_MESSAGE: &str = "Q: Leave   TAB: Change mode    S: Single ste
 // const BERKELEY_BLUE: (u8, u8, u8) = (0, 50, 98);
 // const CALIFORNIA_GOLD: (u8, u8, u8) = (253, 181, 21);
 
-pub fn tui_loop(machine: &mut RiscV, code: &Vec<u8>, addr: u32) -> Result<()> {
+pub fn tui_loop(machine: &mut RiscV, code: &[u8], addr: u32) -> Result<()> {
     let mut emu_state = EmuState::new(machine, code.len() / 4);
     let mut emu_terminal = terminal::EmuTerminal::new()?;
     
