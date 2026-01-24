@@ -3,7 +3,7 @@
 mod page;
 
 use crate::exception::Exception;
-use crate::core::Access;
+use crate::core::{Access, Physical};
 
 use page::Page;
 pub use page::PAGE_SIZE;
@@ -54,7 +54,7 @@ impl Default for Memory {
 }
 
 impl Device for Memory {
-    fn read_byte(&self, access: Access) -> Result<u8, Exception> {
+    fn read_byte(&self, access: Access<Physical>) -> Result<u8, Exception> {
         let addr = access.addr as usize;
 
         if let Some(page) = self.translate(addr) {
@@ -64,7 +64,7 @@ impl Device for Memory {
         }
     }
 
-    fn write_byte(&mut self, access: Access, data: u8) -> Result<(), Exception> {
+    fn write_byte(&mut self, access: Access<Physical>, data: u8) -> Result<(), Exception> {
         let addr = access.addr as usize;
 
         if let Some(page) = self.translate_mut(addr) {
@@ -75,7 +75,7 @@ impl Device for Memory {
         }   
     }
 
-    fn read_bytes(&self, mut access: Access, size: usize, des: &mut [u8]) -> Result<(), Exception> {
+    fn read_bytes(&self, mut access: Access<Physical>, size: usize, des: &mut [u8]) -> Result<(), Exception> {
         let mut start = 0;
 
         while start < size {
@@ -98,7 +98,7 @@ impl Device for Memory {
         Ok(())
     }
 
-    fn write_bytes(&mut self, mut access: Access, size: usize, src: &[u8]) -> Result<(), Exception> {
+    fn write_bytes(&mut self, mut access: Access<Physical>, size: usize, src: &[u8]) -> Result<(), Exception> {
         let mut start = 0;
 
         while start < size {

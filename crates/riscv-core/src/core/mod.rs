@@ -7,7 +7,7 @@ mod privilege;
 mod register;
 
 pub use cpu::Cpu as RiscV;
-pub(crate) use mmu::access::{Access, AccessType};
+pub(crate) use mmu::access::{Access, AccessType, Physical};
 pub(crate) use mmu::Mmu;
 use pc::PC;
 use register::RegisterFile;

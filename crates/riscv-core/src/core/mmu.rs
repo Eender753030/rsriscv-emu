@@ -1,7 +1,7 @@
 pub mod access;
 mod sv32;
 
-use crate::{Exception, core::{mmu::sv32::Sv32Vpn, privilege::PrivilegeMode}, device::bus::SystemBus};
+use crate::{Exception, core::{mmu::{access::{Physical, Virtual}, sv32::Sv32Vpn}, privilege::PrivilegeMode}, device::bus::SystemBus};
 
 use sv32::Sv32Pte;
 use access::{Access, AccessType};
@@ -10,10 +10,10 @@ use access::{Access, AccessType};
 pub struct Mmu;
 
 impl Mmu {
-    pub fn translate(access: Access, mode: PrivilegeMode, ppn_opt: Option<u32>, bus: &mut SystemBus) -> Result<Access, Exception> {
+    pub fn translate(access: Access<Virtual>, mode: PrivilegeMode, ppn_opt: Option<u32>, bus: &mut SystemBus) -> Result<Access<Physical>, Exception> {
         let v_addr = access.addr; 
         match mode {
-            PrivilegeMode::Machine => Ok(access),
+            PrivilegeMode::Machine => Ok(access.bypass()),
             PrivilegeMode::Supervisor | PrivilegeMode::User => {
                 if let Some(ppn) = ppn_opt {
                     let vpn = Sv32Vpn::from(v_addr);
@@ -57,9 +57,9 @@ impl Mmu {
                         let ppn_1 = leaf_pte.ppn() & 0x3ffc00;
                         ppn_1 << 12 | (vpn.vpn_0() as u32) << 12 | vpn.offset() as u32
                     };
-                    Ok(Access::new(p_addr, access.kind))
+                    Ok(access.into_physical(p_addr))
                 } else {
-                    Ok(access)
+                    Ok(access.bypass())
                 }
             }
         }
