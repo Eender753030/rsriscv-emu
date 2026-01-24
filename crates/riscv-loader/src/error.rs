@@ -18,10 +18,10 @@ pub enum LoadError {
     ReadProgramHeadersFailed,
 
     #[error("Not .elf file")]
-    NotElfFile,
+    NotElfFile(Vec<u8>),
 
     #[error("Can not read .elf: {0}")]
-    ReadElfFailed(String),
+    ParseElfFailed(String),
 
     #[error("Can not get .elf section headers: {0}")]
     GetElfSectionHeaderFailed(String),

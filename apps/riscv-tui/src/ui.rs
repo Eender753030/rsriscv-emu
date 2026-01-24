@@ -164,15 +164,13 @@ fn render_ins<D: DebugInterface>(f: &mut Frame, area: Rect, emu_state: &mut EmuS
         let marker = if ins.ends_with(':') {
             offset += 1;
             ""
-        } else { 
-            if (emu_state.pc - DRAM_BASE_ADDR) / 4 == ((i - offset) as u32) {
-                if emu_state.mode != EmuMode::Observation {
-                    emu_state.ins.list_state.select(Some(i));
-                }
-                "PC >>"
-            } else {
-                "     "
+        } else if (emu_state.pc - DRAM_BASE_ADDR) / 4 == ((i - offset) as u32) {
+            if emu_state.mode != EmuMode::Observation {
+                emu_state.ins.list_state.select(Some(i));
             }
+            "PC >>"
+        } else {
+            "     "
         };
         ListItem::new(format!("{}{}", marker, ins))
     }).collect();

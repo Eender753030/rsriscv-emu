@@ -74,12 +74,10 @@ impl Mmu {
 
         if !pte.is_valid() || (!pte.can_read() && pte.can_write()) {
             Err(access.to_page_exception())
-        } else {
-            if pte.is_leaf() {
+        } else if pte.is_leaf() {
                 Ok((pte, pte_addr, true))
-            } else {
-                Ok((pte, pte_addr, false))
-            }
+        } else {
+            Ok((pte, pte_addr, false))
         }
     }
 

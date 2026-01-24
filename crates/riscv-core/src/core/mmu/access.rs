@@ -18,7 +18,7 @@ impl Access {
         Access { addr, kind }
     }
     
-    pub fn to_access_exception(&self) -> Exception {
+    pub fn to_access_exception(self) -> Exception {
         match self.kind {    
             AccessType::Load => Exception::LoadAccessFault(self.addr),
             AccessType::Store => Exception::StoreAccessFault(self.addr),
@@ -26,7 +26,7 @@ impl Access {
         }
     }
 
-    pub fn to_page_exception(&self) -> Exception {
+    pub fn to_page_exception(self) -> Exception {
         match self.kind {
             AccessType::Load => Exception::LoadPageFault(self.addr),
             AccessType::Store => Exception::StoreOrAmoPageFault(self.addr),
