@@ -5,6 +5,12 @@ use super::Device;
 use super::memory::{Memory, PAGE_SIZE};
 use super::uart::Uart;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MappedDevice {
+    Uart,
+    Ram,
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct SystemBus {
     uart: Uart,
@@ -16,12 +22,12 @@ pub const UART_END: u32 = 0x1000_00FF;
 pub const DRAM_BASE_ADDR: u32 = 0x8000_0000;
 
 impl SystemBus {
-    pub fn mapping(&self, access: &mut Access) -> Result<&dyn Device, Exception> {
+    fn mapping(&self, access: &mut Access) -> Result<MappedDevice, Exception> {
         let addr = access.addr;
         match addr {
             UART_BASE..=UART_END => {
                access.addr = addr - UART_BASE;
-               Ok(&self.uart)
+               Ok(MappedDevice::Uart)
             }
             DRAM_BASE_ADDR.. => {
                 let ram_addr = addr - DRAM_BASE_ADDR;
@@ -29,27 +35,7 @@ impl SystemBus {
                     Err(access.to_access_exception())
                 } else {
                     access.addr = ram_addr;
-                    Ok(&self.ram)
-                }
-            },
-            _ => Err(access.to_access_exception()),
-        }
-    }
-
-    pub fn mapping_mut(&mut self, access: &mut Access) -> Result<&mut dyn Device, Exception> {
-        let addr = access.addr;
-        match addr {
-            UART_BASE..=UART_END => {
-               access.addr = addr - UART_BASE;
-               Ok(&mut self.uart)
-            }
-            DRAM_BASE_ADDR.. => {
-                let ram_addr = addr - DRAM_BASE_ADDR;
-                if ram_addr as usize >= self.ram.size {
-                    Err(access.to_access_exception())
-                } else {
-                    access.addr = ram_addr;
-                    Ok(&mut self.ram)
+                    Ok(MappedDevice::Ram)
                 }
             },
             _ => Err(access.to_access_exception()),
@@ -61,12 +47,13 @@ impl SystemBus {
     }
 
     pub fn read_u32_bytes(&self, mut access: Access, len: usize, is_signed: bool) -> Result<u32, Exception> {
-        let device = self.mapping(&mut access)?;
-
         let mut four_bytes = [0; 4];
 
-        device.read_bytes(access, len, &mut four_bytes[..len])?;
-
+        match self.mapping(&mut access)? {
+            MappedDevice::Uart => self.uart.read_bytes(access, len, &mut four_bytes[..len])?,
+            MappedDevice::Ram => self.ram.read_bytes(access, len, &mut four_bytes[..len])?,
+        }
+        
         if is_signed && (four_bytes[len - 1] & 0x80 != 0) {
             four_bytes[len..].fill(0xff);
         }
@@ -79,8 +66,10 @@ impl SystemBus {
     }
 
     pub fn write_u32_bytes(&mut self, mut access: Access, data: u32, len: usize) -> Result<(), Exception> {
-        let device = self.mapping_mut(&mut access)?;
-        device.write_bytes(access, len, &data.to_le_bytes())?;
+        match self.mapping(&mut access)? {
+            MappedDevice::Uart => self.uart.write_bytes(access, len, &data.to_le_bytes())?,
+            MappedDevice::Ram => self.ram.write_bytes(access, len, &data.to_le_bytes())?,
+        }
         Ok(())
     }
 
@@ -95,22 +84,30 @@ impl SystemBus {
 
 impl Device for SystemBus {
     fn read_byte(&self, mut access: Access) -> Result<u8, Exception> {
-        let device = self.mapping(&mut access)?;
-        device.read_byte(access)
+        match self.mapping(&mut access)? {
+            MappedDevice::Uart => self.uart.read_byte(access),
+            MappedDevice::Ram => self.ram.read_byte(access),
+        }
     }
 
     fn write_byte(&mut self, mut access: Access, data: u8) -> Result<(), Exception> {
-        let device = self.mapping_mut(&mut access)?;
-        device.write_byte(access, data)
+        match self.mapping(&mut access)? {
+            MappedDevice::Uart => self.uart.write_byte(access, data),
+            MappedDevice::Ram => self.ram.write_byte(access, data),
+        }
     }
 
     fn read_bytes(&self, mut access: Access, size: usize, des: &mut [u8]) -> Result<(), Exception> {
-        let device = self.mapping(&mut access)?;
-        device.read_bytes(access, size, des)
+        match self.mapping(&mut access)? {
+            MappedDevice::Uart => self.uart.read_bytes(access, size, des),
+            MappedDevice::Ram => self.ram.read_bytes(access, size, des),
+        }
     }
 
     fn write_bytes(&mut self, mut access: Access, size: usize, src: &[u8]) -> Result<(), Exception> {
-        let device = self.mapping_mut(&mut access)?;
-        device.write_bytes(access, size, src)
+        match self.mapping(&mut access)? {
+            MappedDevice::Uart => self.uart.write_bytes(access, size, src),
+            MappedDevice::Ram => self.ram.write_bytes(access, size, src),
+        }
     }
 }
