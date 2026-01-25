@@ -122,7 +122,7 @@ mod tests {
         }
 
         #[test]
-        fn itype_ar_test() {
+        fn itype_arithmetic_test() {
             // addi x10, x0, -2048
             let ins1 = 0x80000513;
             let expect1 = build_base_data(Rv32iOp::Addi, 10, 0, 0, -2048);

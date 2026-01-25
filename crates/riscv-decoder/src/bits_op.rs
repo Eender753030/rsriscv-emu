@@ -27,7 +27,7 @@ impl BitsOp<i32> for u32 {
 }
 
 #[cfg(test)]
-mod bits_op_test {
+mod tests {
     use crate::bits_op::BitsOp;
 
     #[test]
