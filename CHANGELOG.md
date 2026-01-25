@@ -1,0 +1,29 @@
+# Changelog
+
+## [Unreleased]
+
+## [0.2.0] - 2026-01-25
+### Added
+- **MMU Support**: Implemented Sv32 virtual memory translation and Page Tables.
+- **Disassembler**: New `riscv-disasm` crate for converting instructions to strings.
+- **ELF Loader**: Enhanced loader to support `.elf` headers and symbol names.
+- **Exceptions**: Added comprehensive trap handling (Page Fault, Access Fault).
+- **TUI**: Integrated disassembler view to show instruction mnemonics.
+
+### Changed
+- **Breaking**: Refactored `Bus` and `Device` traits to support `Access` structure (required for MMU).
+- **Breaking**: Memory access logic now goes through MMU translation.
+- Refactored project structure into a Cargo Workspace (`core`, `decoder`, `loader`, `apps`).
+- Optimized `riscv-decoder` for static compiler optimizations.
+
+### Fixed
+- Fixed panic on unknown CSR access.
+- Fixed incorrect sign extension in immediate values.
+- Fixed logic errors in `ecall` exception handling from User/Supervisor modes.
+
+## [0.1.0] - 2025-12-26
+### Added
+- Initial release of **RsRiscV Emulator**.
+- Basic RV32I instruction set support.
+- Simple TUI interface.
+- Basic UART output support.
