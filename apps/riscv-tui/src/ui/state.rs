@@ -1,54 +1,31 @@
-use ratatui::widgets::ListState;
+mod list_state;
 
-use riscv_core::{constance::DRAM_BASE_ADDR, debug::{DebugInterface, MachineInfo}};
+use riscv_core::constance::DRAM_BASE_ADDR;
+use riscv_core::debug::{DebugInterface, MachineInfo};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+use list_state::ListStateRecord;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Mid {
+    #[default]
     Reg,
     Csr,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Selected {
+    #[default]
     Ins,
     Mid(Mid),
     Mem,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum EmuMode {
+    #[default]
     Observation,
     Stay,
     Running,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ListStateRecord<T> {
-    pub list: Vec<T>,
-    pub list_state: ListState,
-    current_select: usize,
-}
-
-impl <T> ListStateRecord<T> {
-    pub fn new(list: Vec<T>) -> Self {
-        ListStateRecord { 
-            list,
-            ..Default::default()
-        }
-    }
-}
-
-impl <T> Default for ListStateRecord<T> {
-    fn default() -> Self {
-        let mut list_state = ListState::default();
-        list_state.select(Some(0));
-
-        ListStateRecord {
-            list: Vec::new(),
-            list_state, 
-            current_select: 0, 
-        }
-    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -78,11 +55,11 @@ impl <'a, D: DebugInterface> EmuState<'a, D> {
         let csr = ListStateRecord::new(machine.inspect_csrs());
         let mem = ListStateRecord::new(machine.inspect_mem(dram_base, page_size));
         let pc = machine.inspect_pc();
+
         let page_selected = 0;
-        let mode = EmuMode::Observation;
-        let selected = Selected::Ins;
-        let mid_selected = Mid::Reg;
-        
+        let mode = EmuMode::default();
+        let selected = Selected::default();
+        let mid_selected = Mid::default();
         
         EmuState { 
             machine, 
@@ -105,27 +82,27 @@ impl <'a, D: DebugInterface> EmuState<'a, D> {
 
     pub fn running_mode_selected(&mut self) {
         match self.selected {
-            Selected::Ins => self.ins.list_state.select(Some((self.pc - DRAM_BASE_ADDR) as usize)),
+            Selected::Ins => self.ins.select((self.pc - DRAM_BASE_ADDR) as usize),
             Selected::Mid(m) => match m {
-                Mid::Reg => self.reg.list_state.select(None),
-                Mid::Csr => self.csr.list_state.select(None),
+                Mid::Reg => self.reg.no_select(),
+                Mid::Csr => self.csr.no_select(),
             }
-            Selected::Mem => self.mem.list_state.select(None)
+            Selected::Mem => self.mem.no_select(),
         }
     }
 
     pub fn running_mode_selected_update(&mut self) {
-        self.ins.list_state.select(Some((self.pc - DRAM_BASE_ADDR) as usize / 4))
+        self.ins.select((self.pc - DRAM_BASE_ADDR) as usize / 4)
     }
 
     pub fn observation_mode_selected(&mut self) {
         match self.selected {
-            Selected::Ins => self.ins.list_state.select(Some(self.ins.current_select)),
+            Selected::Ins => self.ins.select_curr(),
             Selected::Mid(m) => match m {
-                Mid::Reg => self.reg.list_state.select(Some(self.reg.current_select)),
-                Mid::Csr => self.csr.list_state.select(Some(self.csr.current_select)),
+                Mid::Reg => self.reg.select_curr(),
+                Mid::Csr => self.csr.select_curr(),
             }
-            Selected::Mem => self.mem.list_state.select(Some(self.mem.current_select)),
+            Selected::Mem => self.mem.select_curr(),
         }
     }
 
@@ -147,77 +124,23 @@ impl <'a, D: DebugInterface> EmuState<'a, D> {
 
     pub fn next(&mut self) {  
         match self.selected {
-            Selected::Ins => {
-                self.ins.current_select = match self.ins.current_select >= self.ins.list.len() - 1 {
-                    true => 0,
-                    false => self.ins.current_select + 1
-                };
-                self.ins.list_state.select(Some(self.ins.current_select));
+            Selected::Ins => self.ins.next(),
+            Selected::Mid(m) => match m {
+                Mid::Reg => self.reg.next(),
+                Mid::Csr => self.csr.next(),
             },
-            Selected::Mid(m) => {
-                match m {
-                    Mid::Reg => {
-                        self.reg.current_select = match self.reg.current_select >= self.reg.list.len() - 1 {
-                            true => 0,
-                            false => self.reg.current_select + 1
-                        };
-                        self.reg.list_state.select(Some(self.reg.current_select));
-                    },
-                    Mid::Csr => {
-                        self.csr.current_select = match self.csr.current_select >= self.csr.list.len() - 1 {
-                            true => 0,
-                            false => self.csr.current_select + 1
-                        };
-                        self.csr.list_state.select(Some(self.csr.current_select));
-                    }
-                }
-                
-            },
-            Selected::Mem => {
-                self.mem.current_select = match self.mem.current_select >= (self.mem.list.len() / 4) - 1 {
-                    true => 0,
-                    false => self.mem.current_select + 1
-                };
-                self.mem.list_state.select(Some(self.mem.current_select));
-            },
+            Selected::Mem => self.mem.next(),
         }
     }
     
     pub fn prev(&mut self) {
         match self.selected {
-            Selected::Ins => {
-                self.ins.current_select = match self.ins.current_select == 0 {
-                    true => self.ins.list.len() - 1,
-                    false => self.ins.current_select - 1
-                };
-                self.ins.list_state.select(Some(self.ins.current_select));
+            Selected::Ins => self.ins.prev(),
+            Selected::Mid(m) => match m {
+                Mid::Reg => self.reg.prev(),
+                Mid::Csr => self.csr.prev(),
             },
-            Selected::Mid(m) => {
-                match m {
-                    Mid::Reg => {
-                        self.reg.current_select = match self.reg.current_select == 0  {
-                            true => self.reg.list.len() - 1,
-                            false => self.reg.current_select - 1
-                        };
-                        self.reg.list_state.select(Some(self.reg.current_select));
-                    },
-                    Mid::Csr => {
-                        self.csr.current_select = match self.csr.current_select == 0  {
-                            true => self.csr.list.len() - 1,
-                            false => self.csr.current_select - 1
-                        };
-                        self.csr.list_state.select(Some(self.csr.current_select));
-                    }
-                }
-                
-            },
-            Selected::Mem => {
-                self.mem.current_select = match self.mem.current_select == 0  {
-                    true => (self.mem.list.len() / 4) - 1,
-                    false => self.mem.current_select - 1
-                };
-                self.mem.list_state.select(Some(self.mem.current_select));
-            },
+            Selected::Mem => self.mem.prev(),
         }
     }
 

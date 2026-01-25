@@ -2,27 +2,28 @@ pub mod terminal;
 pub mod state;
 pub mod key;
 
-use ratatui::{
-    layout::{Layout, Rect, Constraint, Alignment},
-    widgets::{Block, List, ListItem, Paragraph},
-    style::{Color, Style},
-    Frame
-};
-
-use anyhow::Result;
-
 use std::time::Duration;
 
+use anyhow::Result;
+use ratatui::{
+    Frame,
+    layout::{Layout, Rect, Constraint, Alignment},
+    widgets::{Block, List, ListItem, Paragraph},
+    style::{Color, Style},  
+};
+
+use riscv_core::RiscV;
+use riscv_core::constance::{DRAM_BASE_ADDR, PAGE_SIZE};
+use riscv_core::debug::DebugInterface;
+
 use crate::ui::state::{Mid, Selected};
-use riscv_core::{RiscV, constance::{DRAM_BASE_ADDR, PAGE_SIZE}, debug::*, error::RiscVError};
+
 use key::KeyControl;
 use state::{EmuState, EmuMode};
-
 
 const HEADER: &str = concat!("RsRisc-V Emulator v", env!("CARGO_PKG_VERSION"));
 const OBSERVATION_HINT_MESSAGE: &str = "Q: Leave    TAB: Switch mode    Up/Down: Scroll    Left/Right: Change panel ]/[: Change Dram page";
 const EMULATE_HINT_MESSAGE: &str = "Q: Leave   TAB: Change mode    S: Single step    P: Run to end / Stop    R: Reset";
-
 // const BERKELEY_BLUE: (u8, u8, u8) = (0, 50, 98);
 // const CALIFORNIA_GOLD: (u8, u8, u8) = (253, 181, 21);
 
