@@ -5,6 +5,11 @@ members = [
     "apps/*",
 ]
 
+[workspace.package]
+version = "0.2.0"
+authors = ["Eender <ender303030@gmail.com>"]
+edition = "2024"
+
 [workspace.dependencies]
 riscv-core = {path = "crates/riscv-core"}
 riscv-decoder = {path = "crates/riscv-decoder"}
