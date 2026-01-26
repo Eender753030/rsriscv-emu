@@ -1,0 +1,32 @@
+name: RsRiscV Emulator CI
+
+on: 
+  push:
+    branches: ["master", "develop"]
+    branches: ["master"]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build_and_test:
+    name: Build & Test (riscv-tests)
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+    
+    - name: Build
+      run: cargo build --verbose
+
+    - name: Run Unit Tests
+      run: cargo test --lib --verbose
+      
+    - name: Run Integration Tests (RISC-V Tests)
+      run: cargo test --test '*' -- --nocapture

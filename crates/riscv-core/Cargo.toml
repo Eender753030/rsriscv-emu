@@ -10,3 +10,6 @@ riscv-decoder = {workspace = true}
 modular-bitfield = "0.13"
 
 thiserror = "2"
+
+[dev-dependencies]
+riscv-loader = {workspace = true}

@@ -987,6 +987,7 @@ version = "0.2.0"
 dependencies = [
  "modular-bitfield",
  "riscv-decoder",
+ "riscv-loader",
  "thiserror 2.0.17",
 ]
 

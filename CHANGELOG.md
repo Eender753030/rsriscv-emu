@@ -1,6 +1,9 @@
 # Changelog
 
-## [Unreleased]
+## [0.2.1] - 2026-01-26
+### Added
+- **Unit Tests**: Added unit tests for important components.
+- **RiscV Tests**: Added intergration test by using offical `riscv-tests`'s `isa/` that include `rv32ui-p`, `rv32um-p`, `rv32mi-p` 
 
 ## [0.2.0] - 2026-01-25
 ### Added
