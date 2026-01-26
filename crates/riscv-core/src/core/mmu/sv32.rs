@@ -17,7 +17,7 @@ impl From<u32> for Sv32Vpn {
 #[bitfield]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Sv32Pte {
-    v: B1, //
+    v: B1,
     r: B1,
     w: B1,
     x: B1,

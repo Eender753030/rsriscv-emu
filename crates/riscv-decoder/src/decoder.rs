@@ -132,7 +132,19 @@ mod tests {
             let expect2 = build_base_data(Rv32iOp::Slti, 23, 24, 31, 31);
         
             assert_eq!(decode(ins1), Ok(expect1));
-            assert_eq!(decode(ins2), Ok(expect2))
+            assert_eq!(decode(ins2), Ok(expect2));
+
+            if let Instruction::Base(op1, _) = decode(ins1).unwrap() {
+                assert!(op1.is_itype_ar());
+            } else {
+                unreachable!("Should be Base of Instruction");
+            }
+            
+            if let Instruction::Base(op2, _) = decode(ins2).unwrap() {
+                assert!(op2.is_itype_ar());
+            } else {
+                unreachable!("Should be Base of Instruction");
+            }
         }
 
         #[test]
@@ -146,15 +158,33 @@ mod tests {
 
             assert_eq!(decode(ins1), Ok(expect1));
             assert_eq!(decode(ins2), Ok(expect2));
+
+            if let Instruction::Base(op1, _) = decode(ins1).unwrap() {
+                assert!(op1.is_itype_load());
+            } else {
+                unreachable!("Should be Base of Instruction");
+            }
+            
+            if let Instruction::Base(op2, _) = decode(ins2).unwrap() {
+                assert!(op2.is_itype_load());
+            } else {
+                unreachable!("Should be Base of Instruction");
+            }
         }
 
         #[test]
-        fn  test_jump() {
+        fn  test_itype_jump() {
             // jalr x1, -442(x21)
             let ins = 0xe46a80e7;
             let expect = build_base_data(Rv32iOp::Jalr, 1, 21, 6, -442);
 
             assert_eq!(decode(ins), Ok(expect));
+
+            if let Instruction::Base(op, _) = decode(ins).unwrap() {
+                assert!(op.is_itype_jump());
+            } else {
+                unreachable!("Should be Base of Instruction");
+            }
         }
 
         #[test]
@@ -168,6 +198,18 @@ mod tests {
 
             assert_eq!(decode(ins1), Ok(expect1));
             assert_eq!(decode(ins2), Ok(expect2));
+
+            if let Instruction::Base(op1, _) = decode(ins1).unwrap() {
+                assert!(op1.is_itype_system());
+            } else {
+                unreachable!("Should be Base of Instruction");
+            }
+            
+            if let Instruction::Base(op2, _) = decode(ins2).unwrap() {
+                assert!(op2.is_itype_system());
+            } else {
+                unreachable!("Should be Base of Instruction");
+            }
         }
 
         #[test]
@@ -181,6 +223,18 @@ mod tests {
 
             assert_eq!(decode(ins1), Ok(expect1));
             assert_eq!(decode(ins2), Ok(expect2));
+
+            if let Instruction::Base(op1, _) = decode(ins1).unwrap() {
+                assert!(op1.is_rtype());
+            } else {
+                unreachable!("Should be Base of Instruction");
+            }
+            
+            if let Instruction::Base(op2, _) = decode(ins2).unwrap() {
+                assert!(op2.is_rtype());
+            } else {
+                unreachable!("Should be Base of Instruction");
+            }
         }
 
         #[test]
@@ -194,6 +248,18 @@ mod tests {
             
             assert_eq!(decode(ins1), Ok(expect1));
             assert_eq!(decode(ins2), Ok(expect2));
+
+            if let Instruction::Base(op1, _) = decode(ins1).unwrap() {
+                assert!(op1.is_stype());
+            } else {
+                unreachable!("Should be Base of Instruction");
+            }
+            
+            if let Instruction::Base(op2, _) = decode(ins2).unwrap() {
+                assert!(op2.is_stype());
+            } else {
+                unreachable!("Should be Base of Instruction");
+            }
         }
 
         #[test]
@@ -203,6 +269,12 @@ mod tests {
             let expect = build_base_data(Rv32iOp::Jal, 1, 0, 0, 32);
 
             assert_eq!(decode(ins), Ok(expect));
+
+            if let Instruction::Base(op, _) = decode(ins).unwrap() {
+                assert!(op.is_jtype());
+            } else {
+                unreachable!("Should be Base of Instruction");
+            }
         }
 
         #[test]
@@ -216,6 +288,18 @@ mod tests {
 
             assert_eq!(decode(ins1), Ok(expect1));
             assert_eq!(decode(ins2), Ok(expect2));
+
+            if let Instruction::Base(op1, _) = decode(ins1).unwrap() {
+                assert!(op1.is_utype());
+            } else {
+                unreachable!("Should be Base of Instruction");
+            }
+            
+            if let Instruction::Base(op2, _) = decode(ins2).unwrap() {
+                assert!(op2.is_utype());
+            } else {
+                unreachable!("Should be Base of Instruction");
+            }
         }
     }
 
@@ -264,6 +348,20 @@ mod tests {
 
             assert_eq!(decode(ins1), Ok(expect1));
             assert_eq!(decode(ins2), Ok(expect2));
+
+            if let Instruction::Ziscr(op1, _) = decode(ins1).unwrap() {
+                assert!(op1.is_rw());
+                assert!(!op1.is_imm());
+            } else {
+                unreachable!("Should be Base of Instruction");
+            }
+            
+            if let Instruction::Ziscr(op2, _) = decode(ins2).unwrap() {
+                assert!(op2.is_rc());
+                 assert!(op2.is_imm());
+            } else {
+                unreachable!("Should be Base of Instruction");
+            }
         }
     }
 
