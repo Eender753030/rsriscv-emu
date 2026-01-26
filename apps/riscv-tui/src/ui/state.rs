@@ -50,7 +50,7 @@ impl <'a, D: DebugInterface> EmuState<'a, D> {
         let machine_info = machine.get_info();
         let (_, dram_base, page_size) = machine_info.get_info();
 
-        let ins = ListStateRecord::new(ins_list);
+        let mut ins = ListStateRecord::new(ins_list);
         let reg = ListStateRecord::new(machine.inspect_regs().into_iter().collect());
         let csr = ListStateRecord::new(machine.inspect_csrs());
         let mem = ListStateRecord::new(machine.inspect_mem(dram_base, page_size));
@@ -61,6 +61,8 @@ impl <'a, D: DebugInterface> EmuState<'a, D> {
         let selected = Selected::default();
         let mid_selected = Mid::default();
         
+        ins.select_curr();
+
         EmuState { 
             machine, 
             ins, reg, csr, mem, pc, 
@@ -108,17 +110,53 @@ impl <'a, D: DebugInterface> EmuState<'a, D> {
 
     pub fn go_left(&mut self) {  
         self.selected = match self.selected {
-            Selected::Ins => Selected::Mem,
-            Selected::Mid(_) => Selected::Ins,
-            Selected::Mem => Selected::Mid(self.mid_selected) ,
+            Selected::Ins => {
+                self.ins.no_select();
+                self.mem.select_curr();
+                Selected::Mem
+            },
+            Selected::Mid(mid) => {
+                match mid {
+                    Mid::Reg => self.reg.no_select(),
+                    Mid::Csr => self.csr.no_select(),
+                }
+                self.ins.select_curr();
+                Selected::Ins
+            },
+            Selected::Mem => {
+                self.mem.no_select();
+                match self.mid_selected {
+                    Mid::Reg => self.reg.select_curr(),
+                    Mid::Csr => self.csr.select_curr(),
+                }
+                Selected::Mid(self.mid_selected)
+            },
         };
     }
 
     pub fn go_right(&mut self) {  
         self.selected = match self.selected {
-            Selected::Ins => Selected::Mid(self.mid_selected) ,
-            Selected::Mid(_) => Selected::Mem, 
-            Selected::Mem => Selected::Ins,
+            Selected::Ins => {
+                self.ins.no_select();
+                match self.mid_selected {
+                    Mid::Reg => self.reg.select_curr(),
+                    Mid::Csr => self.csr.select_curr(),
+                }
+                Selected::Mid(self.mid_selected)
+            },
+            Selected::Mid(mid) => {
+                match mid {
+                    Mid::Reg => self.reg.no_select(),
+                    Mid::Csr => self.csr.no_select(),
+                }
+                self.mem.select_curr();
+                Selected::Mem
+            },
+            Selected::Mem => {
+                self.mem.no_select();
+                self.ins.select_curr();
+                Selected::Ins
+            },
         };
     }
 

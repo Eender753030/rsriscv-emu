@@ -1,10 +1,10 @@
 mod core;
 mod device;
 mod engine;
+mod error;
+mod exception;
 
 pub mod debug;
-pub mod error;
-pub mod exception;
 pub mod prelude;
 pub mod constance {
     pub use crate::device::memory::PAGE_SIZE;

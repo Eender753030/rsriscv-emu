@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use riscv_core::RiscV;
-use riscv_core::debug::DebugInterface; 
+use riscv_core::DebugInterface; 
 use riscv_loader::{load, LoadInfo};
 
 const MAX_CYCLES: u64 = 1_000_000;

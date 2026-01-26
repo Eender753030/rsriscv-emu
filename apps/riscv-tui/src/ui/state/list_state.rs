@@ -47,7 +47,7 @@ impl <T> ListStateRecord<T> {
 impl<T> Default for ListStateRecord<T> {
     fn default() -> Self {
         let mut list_state = ListState::default();
-        list_state.select(Some(0));
+        list_state.select(None);
 
         ListStateRecord {
             list: Vec::new(),

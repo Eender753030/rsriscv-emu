@@ -42,4 +42,3 @@ impl Drop for EmuTerminal {
         let _ = self.terminal.show_cursor();
     }
 }
-
