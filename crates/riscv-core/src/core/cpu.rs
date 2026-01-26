@@ -154,3 +154,108 @@ impl std::fmt::Debug for Cpu {
         write!(f, " {:?}", self.bus)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::constance::DRAM_BASE_ADDR;
+    use crate::core::privilege::PrivilegeMode;
+
+    // Helper: 建立一個乾淨的 CPU
+    fn new_cpu() -> Cpu {
+        Cpu::default()
+    }
+
+    #[test]
+    fn test_cpu_initial_state() {
+        let cpu = new_cpu();
+        assert_eq!(cpu.pc.get(), DRAM_BASE_ADDR, "PC should start at DRAM base");
+        assert_eq!(cpu.mode, PrivilegeMode::Machine, "Should start in Machine Mode");
+        assert_eq!(cpu.regs[1], 0);
+    }
+
+    #[test]
+    fn test_load_program_to_memory() {
+        let mut cpu = new_cpu();
+        let code = vec![0xEF, 0xBE, 0xAD, 0xDE]; 
+        
+        cpu.load(DRAM_BASE_ADDR, &code).expect("Load failed");
+
+        let access = Access::new(DRAM_BASE_ADDR, AccessType::Load);
+        let val = cpu.bus.read_u32(access.into_physical(DRAM_BASE_ADDR)).expect("Bus read failed");
+        
+        assert_eq!(val, 0xDEADBEEF, "Memory content mismatch");
+    }
+
+    #[test]
+    fn test_cycle_execution_addi() {
+        // Fetch-Decode-Execute
+        let mut cpu = new_cpu();
+
+        // addi x1, x0, 10
+        let code = 0x00A00093u32.to_le_bytes();
+        cpu.load(DRAM_BASE_ADDR, &code).unwrap();
+
+        cpu.step().expect("Step failed");
+
+        assert_eq!(cpu.pc.get(), DRAM_BASE_ADDR + 4, "PC did not advance");
+        assert_eq!(cpu.regs[1], 10, "x1 register value incorrect");
+    }
+
+    #[test]
+    fn test_cycle_execution_add() {
+        let mut cpu = new_cpu();
+
+        cpu.regs.write(1, 10); // x1 = 10
+        cpu.regs.write(2, 20); // x2 = 20
+
+        // add x3, x1, x2
+        let code = 0x002081B3u32.to_le_bytes();
+        cpu.load(DRAM_BASE_ADDR, &code).unwrap();
+
+        cpu.step().unwrap();
+
+        // x3 = 10 + 20 = 30
+        assert_eq!(cpu.regs[3], 30);
+    }
+
+    #[test]
+    fn test_cycle_execution_bne_taken() {
+        let mut cpu = new_cpu();
+
+        cpu.regs.write(1, 5);
+        cpu.regs.write(2, 10);
+
+        // bne x1, x2, 8
+        let bne_code = 0x00209463u32.to_le_bytes();
+        
+        cpu.load(DRAM_BASE_ADDR, &bne_code).unwrap();
+
+        cpu.step().unwrap();
+
+        assert_eq!(cpu.pc.get(), DRAM_BASE_ADDR + 8, "Branch did not take");
+    }
+
+    #[test]
+    fn test_exception_trap_handling() {
+        let mut cpu = new_cpu();
+
+        // mtvec = 0x8000_0100
+        let handler_base = DRAM_BASE_ADDR + 0x100;
+        cpu.csrs.write(0x305, handler_base, PrivilegeMode::Machine).unwrap();
+
+        // Illegal: 0xFFFFFFFF
+        let illegal_inst = 0xFFFFFFFFu32.to_le_bytes();
+        cpu.load(DRAM_BASE_ADDR, &illegal_inst).unwrap();
+
+        cpu.step().unwrap(); 
+
+        assert_eq!(cpu.pc.get(), handler_base, "Did not trap to mtvec");
+  
+        let mcause = cpu.csrs.read(0x342, PrivilegeMode::Machine).unwrap();
+        assert_eq!(mcause, 2, "mcause wrong");
+
+        let mepc = cpu.csrs.read(0x341, PrivilegeMode::Machine).unwrap();
+        assert_eq!(mepc, DRAM_BASE_ADDR, "mepc wrong");
+    }
+}
