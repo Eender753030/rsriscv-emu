@@ -18,12 +18,10 @@ use crate::error::CliError;
 pub fn load_arg() -> Result<String, CliError>{
     let mut args = env::args().skip(1);
 
-    if args.len() == 0 {
-        Err(CliError::NoInputFile)
-    } else if args.len() > 1 {
-        Err(CliError::TooManyArgument)
-    } else {
-        // Safe: Here we sure args has the first element
-        Ok(args.next().unwrap())
-    }
+    Ok(match args.len() {
+        0   => return Err(CliError::NoInputFile),
+        2.. => return Err(CliError::TooManyArgument),
+        // Safe: Here we sure args has the first element 
+        1   => args.next().unwrap(),
+    })
 }

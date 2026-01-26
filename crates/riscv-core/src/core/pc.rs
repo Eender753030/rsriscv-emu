@@ -1,4 +1,4 @@
-const INIT_RAM_START: u32 = 0x8000_0000;
+use crate::constance::DRAM_BASE_ADDR;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PC {
@@ -19,7 +19,7 @@ impl PC {
     }
 
     pub fn reset(&mut self) {
-        self.pointer = INIT_RAM_START;
+        self.pointer = DRAM_BASE_ADDR;
     }
 
     pub fn related_addressing(&mut self, offset: i32) {
@@ -33,6 +33,6 @@ impl PC {
 
 impl Default for PC {
     fn default() -> Self {
-        PC { pointer: INIT_RAM_START }
+        PC { pointer: DRAM_BASE_ADDR }
     }
 }

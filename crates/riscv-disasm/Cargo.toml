@@ -1,0 +1,11 @@
+[package]
+name = "riscv-disasm"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+
+[dependencies]
+riscv-loader = {workspace = true}
+riscv-decoder = {workspace = true}
+
+thiserror = "2"

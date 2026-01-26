@@ -15,8 +15,8 @@ impl RegisterFile {
         self.regs.fill(0);
     }
 
-    pub fn iter(&self) -> IteratorRegisterFile<'_> {
-        IteratorRegisterFile { id: 0, regs: self }
+    pub fn iter(&self) -> impl Iterator<Item = &u32> + '_ {
+        self.regs.iter()
     }
 
     pub fn inspect(&self) -> [u32; 32] {
@@ -28,23 +28,5 @@ impl std::ops::Index<u8> for RegisterFile {
     type Output = u32;
     fn index(&self, index: u8) -> &Self::Output {
         &self.regs[index as usize]
-    }
-}
-
-pub struct IteratorRegisterFile<'a> {
-    id: u8,
-    regs: &'a RegisterFile,
-}
-
-impl <'a>Iterator for IteratorRegisterFile<'a> {
-    type Item = u32;
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.id < 32 {
-            let next = Some(self.regs[self.id]);
-            self.id += 1;
-            next
-        } else {
-            None
-        }
     }
 }

@@ -3,10 +3,11 @@ mod ui;
 
 pub mod error;
 
-use riscv_core::RiscV;
-use riscv_loader::load;
-
 use anyhow::Result;
+
+use riscv_core::RiscV;
+use riscv_disasm::disasm;
+use riscv_loader::{LoadInfo, load};
 
 // Main entry for Risc-V emulator. Return any errors.
 fn main() -> Result<()> {
@@ -17,6 +18,22 @@ fn main() -> Result<()> {
     // Access file and load instructions into Risc-V's instruction memory
     let info = load(filepath)?;
 
+    load_info(&mut machine, &info)?;
+
+    let ins_list = disasm::disassembler(&info);
+    
+    let (code, u32) = &info.code[0];
+    // Go into the TUI display loop
+    ui::tui_loop(&mut machine, code, *u32, ins_list)?;
+
+    if cfg!(debug_assertions) {
+        println!("{:?}", machine);
+        println!("{:?}", info);
+    }   
+    Ok(())
+}
+
+fn load_info(machine: &mut RiscV, info: &LoadInfo) -> Result<()> {
     for (code, addr) in info.code.iter() {
         machine.load(*addr, code)?
     }
@@ -34,14 +51,5 @@ fn main() -> Result<()> {
             machine.load(*addr, data)?
         }
     }
-    
-    let (code, u32) = &info.code[0];
-    // Go into the TUI display loop
-    ui::tui_loop(&mut machine, code, *u32)?;
-
-    if cfg!(debug_assertions) {
-        println!("{:?}", machine);
-    }   
-
     Ok(())
 }

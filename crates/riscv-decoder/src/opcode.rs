@@ -2,6 +2,8 @@
 
 use crate::error::DecodeError;
 
+use OpCode::*;
+
 /// Define const of every instruction corresponding to opcode
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OpCode {
@@ -22,20 +24,20 @@ impl TryFrom<u8> for OpCode {
     type Error = DecodeError;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
-        match value {
-            0x13 => Ok(OpCode::ItypeAr),
-            0x03 => Ok(OpCode::ItypeLoad),
-            0x67 => Ok(OpCode::ItypeJump),
-            0x0f => Ok(OpCode::ItypeFence),
-            0x73 => Ok(OpCode::ItypeSystem),
-            0x33 => Ok(OpCode::Rtype),
-            0x23 => Ok(OpCode::Stype),
-            0x63 => Ok(OpCode::Btype),
-            0x6f => Ok(OpCode::Jtype),
-            0x37 => Ok(OpCode::UtypeLui),
-            0x17 => Ok(OpCode::UtypeAuipc),       
-            _ => Err(DecodeError::UnknownOpcode(value)),
-        }
+        Ok(match value {
+            0x13 => ItypeAr,
+            0x03 => ItypeLoad,
+            0x67 => ItypeJump,
+            0x0f => ItypeFence,
+            0x73 => ItypeSystem,
+            0x33 => Rtype,
+            0x23 => Stype,
+            0x63 => Btype,
+            0x6f => Jtype,
+            0x37 => UtypeLui,
+            0x17 => UtypeAuipc,       
+            _    => return Err(DecodeError::UnknownOpcode(value)),
+        })
     }
 }
 
@@ -49,17 +51,17 @@ impl std::fmt::Display for OpCode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let opcode: u8 = (*self).into();
         let op_str = match self {
-            OpCode::ItypeAr => "I-type",
-            OpCode::ItypeLoad => "I-type: load",
-            OpCode::ItypeJump => "I-type: jump",
-            OpCode::ItypeFence => "I-type: fence",
-            OpCode::ItypeSystem => "I-type: system",
-            OpCode::Rtype => "R-type",
-            OpCode::Stype => "S-type",
-            OpCode::Btype => "B-type",
-            OpCode::Jtype => "J-type",
-            OpCode::UtypeLui => "U-type: lui",
-            OpCode::UtypeAuipc => "U-type: auipc",        
+            ItypeAr     => "I-type",
+            ItypeLoad   => "I-type: load",
+            ItypeJump   => "I-type: jump",
+            ItypeFence  => "I-type: fence",
+            ItypeSystem => "I-type: system",
+            Rtype       => "R-type",
+            Stype       => "S-type",
+            Btype       => "B-type",
+            Jtype       => "J-type",
+            UtypeLui    => "U-type: lui",
+            UtypeAuipc  => "U-type: auipc",        
         };
         
         f.pad(&format!("{:#02x}({})", opcode, op_str))

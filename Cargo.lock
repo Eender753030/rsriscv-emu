@@ -983,7 +983,7 @@ checksum = "7a2d987857b319362043e95f5353c0535c1f58eec5336fdfcf626430af7def58"
 
 [[package]]
 name = "riscv-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "modular-bitfield",
  "riscv-decoder",
@@ -992,18 +992,23 @@ dependencies = [
 
 [[package]]
 name = "riscv-decoder"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "thiserror 2.0.17",
 ]
 
 [[package]]
 name = "riscv-disasm"
-version = "0.1.0"
+version = "0.2.0"
+dependencies = [
+ "riscv-decoder",
+ "riscv-loader",
+ "thiserror 2.0.17",
+]
 
 [[package]]
 name = "riscv-loader"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "elf",
  "thiserror 2.0.17",
@@ -1011,12 +1016,13 @@ dependencies = [
 
 [[package]]
 name = "riscv-tui"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "crossterm",
  "ratatui",
  "riscv-core",
+ "riscv-disasm",
  "riscv-loader",
  "thiserror 2.0.17",
 ]

@@ -1,38 +1,26 @@
 use riscv_decoder::prelude::*;
 
-use super::{PC, RegisterFile};
-use crate::core::csr::CsrFile;
+use super::{PC, RegisterFile, CsrFile, PrivilegeMode};
+use crate::core::{Access, AccessType, Mmu};
 use crate::device::bus::SystemBus;
 use crate::device::Device;
-use crate::engine::*;
 use crate::error::RiscVError;
 use crate::exception::Exception;
 use crate::debug::*;
 
 #[derive(Clone, PartialEq, Default)]
 pub struct Cpu {
-    regs: RegisterFile,
-    pc: PC,
-    csrs: CsrFile,
-    bus: SystemBus,
-}
-
-impl std::fmt::Debug for Cpu {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "Cpu {{")?;
-        writeln!(f, " PC: {:#08x}", self.pc.get())?;
-        write!(f, " Registers {{")?;
-        self.regs.iter().enumerate().try_for_each(|(id, regs)|
-            write!(f, " x{}: {}", id, regs as i32)
-        )?;
-        writeln!(f, " }}")?;
-        write!(f, " {:?}", self.bus)
-    }
+    pub(crate) mode: PrivilegeMode,
+    pub(crate) regs: RegisterFile,
+    pub(crate) pc: PC,
+    pub(crate) csrs: CsrFile,
+    pub(crate) bus: SystemBus,
 }
 
 impl Cpu {
     pub fn load(&mut self, addr: u32, data: &[u8]) -> Result<(), RiscVError> {
-        if self.bus.write_bytes(addr, data.len(), data).is_err() {
+        let access = Access::new(addr, AccessType::Store);
+        if self.bus.write_bytes(access, data.len(), data).is_err() {
             Err(RiscVError::LoadFailed)
         } else {
             Ok(())
@@ -45,7 +33,8 @@ impl Cpu {
 
     pub fn set_mem_zero(&mut self, addr: u32, size: usize) -> Result<(), RiscVError> {
         for i in 0..size {
-            self.bus.write_byte(addr + i as u32, 0)
+            let access = Access::new(addr + i as u32, AccessType::Store);
+            self.bus.write_byte(access, 0)
                 .map_err(|_| RiscVError::BssInitFailed)?
         }
         Ok(())
@@ -56,15 +45,10 @@ impl Cpu {
     }
  
     pub fn step(&mut self) -> Result<(), RiscVError> {
-        let prev_pc = self.pc.get();
         if let Err(execpt) = self.cycle() {        
             self.trap_handle(execpt);
         }
-        if prev_pc == self.pc.get() {
-            Err(RiscVError::EndOfInstruction)
-        } else {
-            Ok(())
-        }
+        Ok(())
     }
 
     fn cycle(&mut self) -> Result<(), Exception> {
@@ -77,191 +61,52 @@ impl Cpu {
     }
 
     fn fetch(&mut self) -> Result<u32, Exception> {
-        self.bus.read_u32(self.pc.get())
+        let va_access = Access::new(self.pc.get(), super::AccessType::Fetch);
+
+        let pa_access = Mmu::translate(va_access, self.mode, self.csrs.check_satp(), &mut self.bus)?;
+
+        match self.bus.read_u32(pa_access) {
+            Ok(raw) => Ok(raw),
+            Err(e) => {
+                match e {
+                    Exception::LoadAccessFault(_) => Err(Exception::LoadAccessFault(va_access.addr)),
+                    Exception::StoreAccessFault(_) => Err(Exception::StoreAccessFault(va_access.addr)),
+                    _ => Err(e),
+                }
+            }
+        }    
     }
 
     fn decode(&self, bytes: u32) -> Result<Instruction, Exception> {
         decoder::decode(bytes)
-            .map_err(|_| Exception::IllegalInstruction)
+            .map_err(|_| Exception::IllegalInstruction(bytes))
     }
 
     fn execute(&mut self, ins: Instruction) -> Result<(), Exception> {
         match ins {
-            Instruction::Base(op, data) => {
-                if self.execute_rv32i(op, data)? {
+            Instruction::Base(op, data)  => if self.execute_rv32i(op, data)? {
                     return Ok(());
-                }
             },
-            Instruction::Ziscr(op, data) => {
-                if self.execute_zicsr(op, data)? {
-                    return Ok(());
-                }
+            Instruction::Privileged(op)  => {
+                self.execute_privileged(op);
+                return Ok(())
             },
-            Instruction::Zifencei(_, _) => {},
-            Instruction::M(op, data) => {
-                self.execute_m(op, data);
-            }
+            Instruction::M(op, data)     => self.execute_m(op, data),
+            Instruction::Ziscr(op, data) => self.execute_zicsr(op, data)?,
+            Instruction::Zifencei(_, _)  => {},          
         }
         self.pc.step();
         Ok(())
     }
 
-    fn execute_rv32i(&mut self, op: Rv32iOp, data: InstructionData) -> Result<bool, Exception> {
-        let rs1_data = self.regs[data.rs1];
-        let rs2_data = self.regs[data.rs2];
-        let mut branch = false;
-        let mut jump = false;
-
-        match op {
-            Rv32iOp::Addi => self.regs.write(data.rd, Alu::add_signed(rs1_data, data.imm)),
-            Rv32iOp::Slli => self.regs.write(data.rd, Alu::shl_logic(rs1_data, data.imm as u32)),
-            Rv32iOp::Slti => self.regs.write(data.rd, Alu::set_less_than(rs1_data as i32, data.imm)),
-            Rv32iOp::Sltiu => self.regs.write(data.rd, Alu::set_less_than_unsigned(rs1_data, data.imm as u32)),
-            Rv32iOp::Xori => self.regs.write(data.rd, Alu::xor(rs1_data, data.imm as u32)),
-            Rv32iOp::Srli => self.regs.write(data.rd, Alu::shr_logic(rs1_data, data.imm as u32)),
-            Rv32iOp::Srai => self.regs.write(data.rd, Alu::shr_ar(rs1_data as i32, data.imm as u32)),
-            Rv32iOp::Ori => self.regs.write(data.rd, Alu::or(rs1_data, data.imm as u32)),
-            Rv32iOp::Andi => self.regs.write(data.rd, Alu::and(rs1_data, data.imm as u32)),
-
-            Rv32iOp::Add => self.regs.write(data.rd, Alu::add(rs1_data, rs2_data)),
-            Rv32iOp::Sub => self.regs.write(data.rd, Alu::sub(rs1_data, rs2_data)),
-            Rv32iOp::Sll => self.regs.write(data.rd, Alu::shl_logic(rs1_data, rs2_data)),
-            Rv32iOp::Slt => self.regs.write(data.rd, Alu::set_less_than(rs1_data as i32, rs2_data as i32)),
-            Rv32iOp::Sltu => self.regs.write(data.rd, Alu::set_less_than_unsigned(rs1_data, rs2_data)),
-            Rv32iOp::Xor => self.regs.write(data.rd, Alu::xor(rs1_data, rs2_data)),
-            Rv32iOp::Srl => self.regs.write(data.rd, Alu::shr_logic(rs1_data, rs2_data)),
-            Rv32iOp::Sra => self.regs.write(data.rd, Alu::shr_ar(rs1_data as i32, rs2_data)),
-            Rv32iOp::Or => self.regs.write(data.rd, Alu::or(rs1_data, rs2_data)),
-            Rv32iOp::And => self.regs.write(data.rd, Alu::and(rs1_data, rs2_data)),
-
-            Rv32iOp::Lb => self.regs.write(data.rd, Lsu::load_signed(&mut self.bus, rs1_data, data.imm, 1)?),
-            Rv32iOp::Lh => self.regs.write(data.rd, Lsu::load_signed(&mut self.bus, rs1_data, data.imm, 2)?),
-            Rv32iOp::Lw => self.regs.write(data.rd, Lsu::load(&mut self.bus, rs1_data, data.imm, 4)?),
-            Rv32iOp::Lbu => self.regs.write(data.rd, Lsu::load(&mut self.bus, rs1_data, data.imm, 1)?),
-            Rv32iOp::Lhu => self.regs.write(data.rd, Lsu::load(&mut self.bus, rs1_data, data.imm, 2)?),
-
-            Rv32iOp::Sb => Lsu::store(&mut self.bus, rs1_data, rs2_data, data.imm, 1)?,
-            Rv32iOp::Sh => Lsu::store(&mut self.bus, rs1_data, rs2_data, data.imm, 2)?,
-            Rv32iOp::Sw => Lsu::store(&mut self.bus, rs1_data, rs2_data, data.imm, 4)?,
-
-            Rv32iOp::Beq => branch = Branch::equal(rs1_data, rs2_data),
-            Rv32iOp::Bne => branch = Branch::not_equal(rs1_data, rs2_data),
-            Rv32iOp::Blt => branch = Branch::less(rs1_data as i32, rs2_data as i32),
-            Rv32iOp::Bge => branch = Branch::greater_eqaul(rs1_data as i32, rs2_data as i32),
-            Rv32iOp::Bltu => branch = Branch::less_unsigned(rs1_data, rs2_data),
-            Rv32iOp::Bgeu => branch = Branch::greater_eqaul_unsigned(rs1_data, rs2_data),
-
-            Rv32iOp::Jal => {
-                self.regs.write(data.rd, self.pc.get() + 4);
-                self.pc.related_addressing(data.imm);
-                jump = true;
-            },
-            Rv32iOp::Jalr => {
-                self.regs.write(data.rd, self.pc.get() + 4);
-                self.pc.directed_addressing(rs1_data.wrapping_add_signed(data.imm));
-                jump = true;
-            },
-
-            Rv32iOp::Lui => self.regs.write(data.rd, data.imm as u32),
-            Rv32iOp::Auipc => self.regs.write(data.rd, self.pc.get().wrapping_add(data.imm as u32)),
-
-            Rv32iOp::Fence => {},
-
-            Rv32iOp::Ecall => return Err(Exception::EnvironmentCallFromMMode),
-            Rv32iOp::Ebreak => return Err(Exception::Breakpoint),
-        }
-
-        if branch {
-            self.pc.related_addressing(data.imm);
-        }
-
-        Ok(branch | jump)
-    }
-
-    fn execute_zicsr(&mut self, op: ZicsrOp, data: InstructionData) -> Result<bool, Exception> {
-        let addr = (data.imm & 0xfff) as u16;
-        let rs1_data = self.regs[data.rs1];
-        let zimm = data.rs1 as u32;
-
-        match op {
-            ZicsrOp::Csrrw => {
-                if data.rd != 0 {
-                    let csr_data = self.csrs.read(addr)?;
-                    self.csrs.write(addr, rs1_data)?;
-                    self.regs.write(data.rd, csr_data);
-                } else {
-                    self.csrs.write(addr, rs1_data)?;
-                }
-            },
-            ZicsrOp::Csrrs => {
-                let csr_data = self.csrs.read(addr)?;
-                if data.rs1 != 0{
-                    self.csrs.write(addr, rs1_data | csr_data)?;
-                }
-                self.regs.write(data.rd, csr_data);
-            },
-            ZicsrOp::Csrrc => {
-                let csr_data = self.csrs.read(addr)?;
-                if data.rs1 != 0{
-                    self.csrs.write(addr, (!rs1_data) & csr_data)?;
-                }
-                self.regs.write(data.rd, csr_data);
-            },
-            ZicsrOp::Csrrwi => {
-                if data.rd != 0 {
-                    let csr_data = self.csrs.read(addr)?;
-                    self.csrs.write(addr, zimm)?;
-                    self.regs.write(data.rd, csr_data);
-                } else {
-                    self.csrs.write(addr, zimm)?;
-                } 
-            },
-            ZicsrOp::Csrrsi => {
-                let csr_data = self.csrs.read(addr)?;  
-                if zimm != 0{
-                    self.csrs.write(addr, zimm | csr_data)?;
-                }          
-                self.regs.write(data.rd, csr_data);      
-            },
-            ZicsrOp::Csrrci => {
-                let csr_data = self.csrs.read(addr)?;
-                if zimm != 0{
-                    self.csrs.write(addr, (!zimm) & csr_data)?;
-                }        
-                self.regs.write(data.rd, csr_data);
-            },
-            ZicsrOp::Mret => {
-                self.pc.directed_addressing(self.csrs.trap_ret());
-                return Ok(true);
-            }
-        }
-        
-        Ok(false)
-    }
-
-    fn execute_m(&mut self, op: MOp, data: InstructionData) {
-        let rs1_data = self.regs[data.rs1];
-        let rs2_data = self.regs[data.rs2];
-        
-        self.regs.write(data.rd, 
-            match op {
-                MOp::Mul => Alu::mul(rs1_data, rs2_data),
-                MOp::Mulh => Alu::mulh(rs1_data, rs2_data),
-                MOp::Mulhu => Alu::mulh_unsigned(rs1_data, rs2_data),
-                MOp::Mulhsu => Alu::mulh_signed_unsigned(rs1_data, rs2_data),
-                MOp::Div => Alu::div(rs1_data, rs2_data),
-                MOp::Divu => Alu::div_unsigned(rs1_data, rs2_data),
-                MOp::Rem => Alu::rem(rs1_data, rs2_data),
-                MOp::Remu => Alu::rem_unsigned(rs1_data, rs2_data),
-            }
-        )
-    }
-
     fn trap_handle(&mut self, except: Exception) {
-        self.pc.directed_addressing(self.csrs.trap_entry(self.pc.get(), except));
+        let (mode, pc) = self.csrs.trap_entry(self.pc.get(), except, self.mode);
+        self.pc.directed_addressing(pc);
+        self.mode = mode;
     }
 
     pub fn reset(&mut self) {
+        self.mode = PrivilegeMode::default();
         self.regs.reset();
         self.csrs.reset();
         self.pc.reset();
@@ -282,33 +127,11 @@ impl DebugInterface for Cpu {
         self.csrs.inspect()
     }
 
-    fn inspect_ins(&self, addr: u32, count: usize) -> Vec<(u32, String)> {
-        let mut ins_list = Vec::with_capacity(count);
-        let mut curr_addr = addr;
-
-        for _ in 0..count {
-            let res = self.bus.read_u32(curr_addr)
-                .map_err(|_| ())
-                .and_then(|raw| 
-                    decoder::decode(raw)
-                    .map_err(|_| ())
-                )
-                .map(|ins| ins_list.push((curr_addr, ins.to_string())));
-
-            if res.is_err() {
-                ins_list.push((curr_addr, "(Unknown)".to_string()));
-            }
-
-            curr_addr += 4;
-        }
-
-        ins_list
-    }
-
     fn inspect_mem(&self, addr: u32, len: usize) -> Vec<u8> {
         let mut mem: Vec<u8> = vec![0; len]; 
         // Todo: The execption debuger layout
-        let _ = self.bus.read_bytes(addr, len, &mut mem);
+        let access = Access::new(addr, AccessType::Load);
+        let _ = self.bus.read_bytes(access, len, &mut mem);
         mem
     }    
 
@@ -316,5 +139,123 @@ impl DebugInterface for Cpu {
         let (dram_size, dram_base, page_size) = self.bus.ram_info();
 
         MachineInfo::new(dram_size, dram_base, page_size)
+    }
+}
+
+impl std::fmt::Debug for Cpu {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "Cpu {{")?;
+        writeln!(f, " PC: {:#08x}", self.pc.get())?;
+        write!(f, " Registers {{")?;
+        self.regs.iter().enumerate().try_for_each(|(id, regs)|
+            write!(f, " x{}: {}", id, *regs as i32)
+        )?;
+        writeln!(f, " }}")?;
+        write!(f, " {:?}", self.bus)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::constance::DRAM_BASE_ADDR;
+    use crate::core::privilege::PrivilegeMode;
+
+    // Helper: 建立一個乾淨的 CPU
+    fn new_cpu() -> Cpu {
+        Cpu::default()
+    }
+
+    #[test]
+    fn test_cpu_initial_state() {
+        let cpu = new_cpu();
+        assert_eq!(cpu.pc.get(), DRAM_BASE_ADDR, "PC should start at DRAM base");
+        assert_eq!(cpu.mode, PrivilegeMode::Machine, "Should start in Machine Mode");
+        assert_eq!(cpu.regs[1], 0);
+    }
+
+    #[test]
+    fn test_load_program_to_memory() {
+        let mut cpu = new_cpu();
+        let code = vec![0xEF, 0xBE, 0xAD, 0xDE]; 
+        
+        cpu.load(DRAM_BASE_ADDR, &code).expect("Load failed");
+
+        let access = Access::new(DRAM_BASE_ADDR, AccessType::Load);
+        let val = cpu.bus.read_u32(access.into_physical(DRAM_BASE_ADDR)).expect("Bus read failed");
+        
+        assert_eq!(val, 0xDEADBEEF, "Memory content mismatch");
+    }
+
+    #[test]
+    fn test_cycle_execution_addi() {
+        // Fetch-Decode-Execute
+        let mut cpu = new_cpu();
+
+        // addi x1, x0, 10
+        let code = 0x00A00093u32.to_le_bytes();
+        cpu.load(DRAM_BASE_ADDR, &code).unwrap();
+
+        cpu.step().expect("Step failed");
+
+        assert_eq!(cpu.pc.get(), DRAM_BASE_ADDR + 4, "PC did not advance");
+        assert_eq!(cpu.regs[1], 10, "x1 register value incorrect");
+    }
+
+    #[test]
+    fn test_cycle_execution_add() {
+        let mut cpu = new_cpu();
+
+        cpu.regs.write(1, 10); // x1 = 10
+        cpu.regs.write(2, 20); // x2 = 20
+
+        // add x3, x1, x2
+        let code = 0x002081B3u32.to_le_bytes();
+        cpu.load(DRAM_BASE_ADDR, &code).unwrap();
+
+        cpu.step().unwrap();
+
+        // x3 = 10 + 20 = 30
+        assert_eq!(cpu.regs[3], 30);
+    }
+
+    #[test]
+    fn test_cycle_execution_bne_taken() {
+        let mut cpu = new_cpu();
+
+        cpu.regs.write(1, 5);
+        cpu.regs.write(2, 10);
+
+        // bne x1, x2, 8
+        let bne_code = 0x00209463u32.to_le_bytes();
+        
+        cpu.load(DRAM_BASE_ADDR, &bne_code).unwrap();
+
+        cpu.step().unwrap();
+
+        assert_eq!(cpu.pc.get(), DRAM_BASE_ADDR + 8, "Branch did not take");
+    }
+
+    #[test]
+    fn test_exception_trap_handling() {
+        let mut cpu = new_cpu();
+
+        // mtvec = 0x8000_0100
+        let handler_base = DRAM_BASE_ADDR + 0x100;
+        cpu.csrs.write(0x305, handler_base, PrivilegeMode::Machine).unwrap();
+
+        // Illegal: 0xFFFFFFFF
+        let illegal_inst = 0xFFFFFFFFu32.to_le_bytes();
+        cpu.load(DRAM_BASE_ADDR, &illegal_inst).unwrap();
+
+        cpu.step().unwrap(); 
+
+        assert_eq!(cpu.pc.get(), handler_base, "Did not trap to mtvec");
+  
+        let mcause = cpu.csrs.read(0x342, PrivilegeMode::Machine).unwrap();
+        assert_eq!(mcause, 2, "mcause wrong");
+
+        let mepc = cpu.csrs.read(0x341, PrivilegeMode::Machine).unwrap();
+        assert_eq!(mepc, DRAM_BASE_ADDR, "mepc wrong");
     }
 }

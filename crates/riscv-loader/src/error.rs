@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum LoadError {
     #[error("Architecture: {0} is not Risc-V (243)")]
     NotRiscVArc(u16),
@@ -18,8 +18,20 @@ pub enum LoadError {
     ReadProgramHeadersFailed,
 
     #[error("Not .elf file")]
-    NotElfFile,
+    NotElfFile(Vec<u8>),
 
     #[error("Can not read .elf: {0}")]
-    ReadElfFailed(String),
+    ParseElfFailed(String),
+
+    #[error("Can not get .elf section headers: {0}")]
+    GetElfSectionHeaderFailed(String),
+
+    #[error("Can not get .elf header name: {0}")]
+    GetElfSectionHeaderNameFailed(String),
+
+    #[error("Can not get .elf symbol table: {0}")]
+    GetElfSymbolFailed(String),
+
+    #[error("Can not get .elf symbol name: {0}")]
+    GetElfSymbolNameFailed(String),
 }

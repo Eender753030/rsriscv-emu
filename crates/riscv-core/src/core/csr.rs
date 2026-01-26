@@ -35,13 +35,15 @@ pub struct CsrFile {
     mstatus: Mstatus,
     mie: u32,
     mtvec: u32,
+    mscratch: u32,
     mepc: u32,
     mcause: u32,
-    mnscratch: u32,
+    mtval: u32,
+    mip: u32,
 }
 
-const MIE_MASK: u32 = 1 << 3;
-const MPIE_MASK: u32 = 1 << 7;
+const MODE_MASK: u16 = 3 << 8;
+// const INTERRUPT_MASK: u32 = 1 << 31;
 
 impl CsrFile {
     pub fn read(&mut self, addr: u16) -> Result<u32, Exception> {
@@ -84,7 +86,22 @@ impl CsrFile {
             CsrAddr::Mhartid => return Err(Exception::IllegalInstruction),
         };
 
-        Ok(())
+                CsrAddr::Mstatus => self.mstatus.write_m(data),
+                CsrAddr::Medeleg => self.medeleg = data,
+                CsrAddr::Mideleg => self.mideleg = data,
+                CsrAddr::Mie => self.mie = data,
+                CsrAddr::Mtvec => self.mtvec = data,
+                CsrAddr::Mscratch => self.mscratch = data,
+                CsrAddr::Mepc => self.mepc = data,
+                CsrAddr::Mcause => self.mcause = data,
+                CsrAddr::Mtval => self.mtval = data,
+                CsrAddr::Mip => self.mip = data,
+                CsrAddr::Pmpcfg0 => {},
+                CsrAddr::Pmpaddr0 => {}, 
+                CsrAddr::Mhartid => return Err(Exception::IllegalInstruction(addr as u32)),
+            };
+            Ok(())
+        }
     }
 
     pub fn trap_entry(&mut self, curr_pc: u32, except_code: Exception) -> u32 {
@@ -117,6 +134,7 @@ impl CsrFile {
             ("mideleg".to_string(), 0),
             ("mie".to_string(), 0),
             ("mtvec".to_string(), self.mtvec),
+            ("mscratch".to_string(), self.mscratch),
             ("mepc".to_string(), self.mepc),
             ("mcause".to_string(), self.mcause),
             ("pmpcfg0".to_string(), 0),
@@ -127,41 +145,110 @@ impl CsrFile {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CsrAddr {
-    Ustatus = 0x000,
-    Satp = 0x180,
-    Mstatus = 0x300,
-    Medeleg = 0x302,
-    Mideleg = 0x303,
-    Mie = 0x304,
-    Mtvec = 0x305,
-    Mepc = 0x341,
-    Mcause = 0x342,
-    Pmpcfg0 = 0x3a0,
-    Pmpaddr0 = 0x3b0,
-    Mnscratch = 0x744,
-    Mhartid = 0xf14,
-}
+#[cfg(test)]
+mod tests {
+    use crate::core::CsrFile;
+    use crate::core::privilege::PrivilegeMode;
+    use crate::exception::Exception;
 
-impl TryFrom<u16> for CsrAddr {
-    type Error = Exception;
-    fn try_from(value: u16) -> Result<Self, Self::Error> {
-        match value {
-            0x000 => Ok(CsrAddr::Ustatus),
-            0x180 => Ok(CsrAddr::Satp),
-            0x300 => Ok(CsrAddr::Mstatus),
-            0x302 => Ok(CsrAddr::Medeleg),
-            0x303 => Ok(CsrAddr::Mideleg),
-            0x304 => Ok(CsrAddr::Mie),
-            0x305 => Ok(CsrAddr::Mtvec),
-            0x341 => Ok(CsrAddr::Mepc),
-            0x342 => Ok(CsrAddr::Mcause),
-            0x3a0 => Ok(CsrAddr::Pmpcfg0),
-            0x3b0 => Ok(CsrAddr::Pmpaddr0),
-            0x744 => Ok(CsrAddr::Mnscratch),
-            0xf14 => Ok(CsrAddr::Mhartid),   
-            _ => Err(Exception::IllegalInstruction),
-        }
+    #[test]
+    fn test_csr_rw_permission() {
+        let mut csr = CsrFile::default();
+        let val = 0xDEAD_BEEF;
+
+        assert!(csr.write(0x340, val, PrivilegeMode::Machine).is_ok());
+        assert_eq!(csr.read(0x340, PrivilegeMode::Machine), Ok(val));
+ 
+        assert_eq!(
+            csr.read(0x340, PrivilegeMode::Supervisor),
+            Err(Exception::IllegalInstruction(0x340))
+        );
+
+        assert_eq!(
+            csr.write(0x340, 0x1234, PrivilegeMode::User),
+            Err(Exception::IllegalInstruction(0x340))
+        );
+    }
+
+    #[test]
+    fn test_mstatus_behavior() {
+        let mut csr = CsrFile::default();
+        
+        let pattern = (1 << 3) | (1 << 7); 
+        csr.write(0x300, pattern, PrivilegeMode::Machine).unwrap();
+        
+        let read_back = csr.read(0x300, PrivilegeMode::Machine).unwrap();
+        assert_eq!(read_back & pattern, pattern);
+        let sstatus = csr.read(0x100, PrivilegeMode::Supervisor).unwrap();
+        assert_eq!(sstatus, 0);
+        
+    }
+
+    #[test]
+    fn test_trap_entry() {
+        let mut csr = CsrFile::default();
+        let fault_pc = 0x8000_1000;
+        let cause = Exception::IllegalInstruction(0);
+        
+        let mstatus_init = 1 << 3;
+        csr.write(0x300, mstatus_init, PrivilegeMode::Machine).unwrap();
+        
+        let handler_base = 0x8000_0004;
+        csr.write(0x305, handler_base, PrivilegeMode::Machine).unwrap();
+
+        let (next_mode, next_pc) = csr.trap_entry(fault_pc, cause, PrivilegeMode::Machine);
+
+        assert_eq!(next_mode, PrivilegeMode::Machine);
+        
+        assert_eq!(next_pc, handler_base);
+
+        assert_eq!(csr.mepc, fault_pc);
+        assert_eq!(csr.mcause, u32::from(cause));
+
+        let mstatus_new = csr.read(0x300, PrivilegeMode::Machine).unwrap();
+        assert_eq!(mstatus_new & (1 << 3), 0);
+        assert_eq!(mstatus_new & (1 << 7), (1 << 7));
+    }
+
+    #[test]
+    fn test_trap_return_mret() {
+        let mut csr = CsrFile::default();
+        let ret_pc = 0x8000_2000;
+
+        csr.mepc = ret_pc;
+        let mstatus_trap_state = (1 << 7) | (3 << 11); 
+        csr.write(0x300, mstatus_trap_state, PrivilegeMode::Machine).unwrap();
+
+        let (ret_mode, target_pc) = csr.trap_mret();
+
+        assert_eq!(target_pc, ret_pc);
+        assert_eq!(ret_mode, PrivilegeMode::Machine);
+
+        let mstatus_after = csr.read(0x300, PrivilegeMode::Machine).unwrap();
+        assert_eq!(mstatus_after & (1 << 3), (1 << 3));
+        assert_eq!(mstatus_after & (1 << 7), (1 << 7));
+        assert_eq!(mstatus_after & (3 << 11), 0);
+    }
+
+    #[test]
+    fn test_exception_delegation() {
+        let mut csr = CsrFile::default();
+        let fault_pc = 0x8000_3000;
+        let cause = Exception::Breakpoint;
+
+        csr.write(0x302, 1 << 3, PrivilegeMode::Machine).unwrap();
+        
+        let s_handler = 0x8000_4000;
+        csr.write(0x105, s_handler, PrivilegeMode::Supervisor).unwrap();
+
+        let (next_mode, next_pc) = csr.trap_entry(fault_pc, cause, PrivilegeMode::User);
+
+        assert_eq!(next_mode, PrivilegeMode::Supervisor);
+        assert_eq!(next_pc, s_handler);
+        
+        assert_eq!(csr.sepc, fault_pc);
+        assert_eq!(csr.scause, u32::from(cause));
+
+        assert_eq!(csr.mcause, 0); 
     }
 }

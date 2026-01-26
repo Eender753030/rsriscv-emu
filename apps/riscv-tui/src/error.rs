@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-const USAGE: &str = "Usage: cargo run <.bin/.elf>";
+const USAGE: &str = "Usage: cargo run <.elf>";
 
 #[derive(Error, Debug)]
 pub enum CliError {
