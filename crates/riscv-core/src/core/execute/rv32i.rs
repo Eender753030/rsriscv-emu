@@ -95,15 +95,14 @@ impl Cpu {
             Lhu => (false, 2),
             _   => return None,
         };
-        let satp_opt = self.csrs.check_satp();
         let mode = self.mode;
         let bus = &mut self.bus;
 
         Some(
             if is_signed {
-                Lsu::load_signed(bus, src, offset, byte_num, mode, satp_opt)
+                Lsu::load_signed(bus, &self.csrs, src, offset, byte_num, mode)
             } else {
-                Lsu::load(bus, src, offset, byte_num, mode, satp_opt)
+                Lsu::load(bus, &self.csrs, src, offset, byte_num, mode)
             }
         )
     }
@@ -115,12 +114,11 @@ impl Cpu {
             Sw => 4,
             _  => return None,
         };
-        let satp_opt = self.csrs.check_satp();
         let mode = self.mode;
         let bus = &mut self.bus;
 
         Some(
-            Lsu::store(bus, des, src, offset, byte_num, mode, satp_opt)
+            Lsu::store(bus,  &self.csrs, des, src, offset, byte_num, mode)
         )
     }
 

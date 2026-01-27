@@ -90,12 +90,16 @@ impl Cpu {
         let va_access = Access::new(self.pc.get(), super::AccessType::Fetch);
 
         let pa_access = Mmu::translate(va_access, self.mode, self.csrs.check_satp(), &mut self.bus)?;
-        
-        self.bus.read_u32(pa_access).or_else(|e| {
-            Err(match e {
+
+        self.csrs.pmp_check(pa_access, 4, self.mode).or_else(|e| Err(match e {
             Exception::InstructionAccessFault(_) => Exception::InstructionAccessFault(va_access.addr),
             _ => e
-        })})
+        }))?;
+
+        self.bus.read_u32(pa_access).or_else(|e| Err(match e {
+            Exception::InstructionAccessFault(_) => Exception::InstructionAccessFault(va_access.addr),
+            _ => e
+        }))
     }
 
     fn decode(&self, bytes: u32) -> Result<Instruction, Exception> {

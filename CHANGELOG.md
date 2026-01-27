@@ -2,7 +2,8 @@
 
 ## [Unreleased]
 ### Added
-- **Exception Panel**: Added exception panel that shows last exception which be raised by CPU
+- **PMP**: Added Physical Memory Protection (PMP) that check between MMU and Bus
+- **TUI: Exception Panel**: Added exception panel that shows last exception which be raised by CPU
 
 ### Changed
 - Refactor `riscv-tui` project architecture
