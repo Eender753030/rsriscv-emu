@@ -3,16 +3,15 @@ use ratatui::layout::Rect;
 use ratatui::widgets::ListItem;
 
 use riscv_core::constance::PAGE_SIZE;
-use riscv_core::debug::DebugInterface;
 
-use crate::ui::component::Componet;
-use crate::ui::state::EmuState;
+use crate::ui::component::Component;
+use crate::state::EmuState;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Memory;
 
-impl Componet for Memory {
-    fn render<D: DebugInterface>(f: &mut Frame, area: Rect, emu: &mut EmuState<D>) {
+impl Component for Memory {
+    fn render(f: &mut Frame, area: Rect, emu: &mut EmuState) {
         let items: Vec<ListItem> = emu.mem.list.chunks(4).enumerate()
             .map(|(i, data)| {
                 ListItem::new(format!(" {:#010x}: {}", i * 16 + (emu.page_selected * PAGE_SIZE), 

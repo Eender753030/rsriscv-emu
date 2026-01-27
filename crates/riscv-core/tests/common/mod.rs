@@ -1,40 +1,20 @@
 use std::path::Path;
 
 use riscv_core::RiscV;
-use riscv_core::DebugInterface; 
-use riscv_loader::{load, LoadInfo};
+use riscv_core::debug::DebugInterface; 
+use riscv_loader;
 
 const MAX_CYCLES: u64 = 1_000_000;
-
-fn init_machine(machine: &mut RiscV, info: &LoadInfo) {
-    for (data, addr) in &info.code {
-        machine.load(*addr, &data).expect("Failed to load code segment");
-    }
-    if let Some(data_segs) = &info.data {
-        for (data, addr) in data_segs {
-            machine.load(*addr, &data).expect("Failed to load data segment");
-        }
-    }
-    if let Some((addr, size)) = info.bss {
-        machine.set_mem_zero(addr, size).expect("Failed to init BSS");
-    }
-    if let Some(other_segs) = &info.other {
-        for (data, addr) in other_segs {
-            machine.load(*addr, &data).expect("Failed to load other segments");
-        }
-    }
-    machine.set_pc(info.pc_entry);
-}
 
 pub fn run_test_file(path: &Path) {
     let filename = path.file_name().unwrap().to_string_lossy();
     println!("Running Test: {}", filename);
 
-    let info = load(&path).expect("Failed to load ELF file");
+    let info = riscv_loader::load(&path).expect("Failed to load ELF file");
 
     let mut machine = RiscV::default();
 
-    init_machine(&mut machine, &info);
+    machine.load_info(&info).expect("Failed to load ELF info");
 
     let tohost_addr = info.symbols
         .as_ref()

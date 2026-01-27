@@ -8,11 +8,10 @@ use ratatui::{
     backend::CrosstermBackend,
     Frame,
 };
-use riscv_core::debug::DebugInterface;
 
 use std::io;
 
-use crate::ui::state::EmuState;
+use crate::state::EmuState;
 
 type TerminalCross = Terminal<CrosstermBackend<io::Stdout>>;
 
@@ -29,7 +28,7 @@ impl EmuTerminal {
         })
     }
 
-    pub fn draw<D: DebugInterface>(&mut self, ui: fn(&mut Frame, &mut EmuState<D>), emu_state: &mut EmuState<D>) -> io::Result<()> {
+    pub fn draw(&mut self, ui: fn(&mut Frame, &mut EmuState), emu_state: &mut EmuState) -> io::Result<()> {
         self.terminal.draw(|f| ui(f, emu_state))?;
         Ok(())
     }

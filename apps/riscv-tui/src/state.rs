@@ -29,8 +29,7 @@ pub enum EmuMode {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct EmuState<'a, D: DebugInterface> {
-    pub machine: &'a mut D,
+pub struct EmuState {
     pub ins: ListStateRecord<String>,
     pub reg: ListStateRecord<u32>,
     pub csr: ListStateRecord<(String, u32)>,
@@ -40,13 +39,13 @@ pub struct EmuState<'a, D: DebugInterface> {
     pub selected: Selected,
     pub mid_selected: Mid,
     pub page_selected: usize,
-    code_len: usize,
+    pub ins_len: usize,
 
     machine_info: MachineInfo,
 }
 
-impl <'a, D: DebugInterface> EmuState<'a, D> {
-    pub fn new(machine: &'a mut D, code_len: usize, ins_list: Vec<String>) -> Self {
+impl EmuState {
+    pub fn new<D: DebugInterface>(machine: &D, ins_len: usize, ins_list: Vec<String>) -> Self {
         let machine_info = machine.get_info();
         let (_, dram_base, page_size) = machine_info.get_info();
 
@@ -64,22 +63,21 @@ impl <'a, D: DebugInterface> EmuState<'a, D> {
         ins.select_curr();
 
         EmuState { 
-            machine, 
             ins, reg, csr, mem, pc, 
             mode, selected, mid_selected,
-            page_selected, code_len,
+            page_selected, ins_len,
             machine_info,
         }
     }
 
-    pub fn update_data(&mut self) {
+    pub fn update_data<D: DebugInterface>(&mut self, machine: &D) {
         let (_, dram_base, page_size) = self.machine_info.get_info();
         let page_base = dram_base + (self.page_selected * page_size) as u32;
 
-        self.reg.list = self.machine.inspect_regs().into_iter().collect();
-        self.csr.list = self.machine.inspect_csrs();
-        self.mem.list = self.machine.inspect_mem(page_base, page_size);
-        self.pc = self.machine.inspect_pc();
+        self.reg.list = machine.inspect_regs().into_iter().collect();
+        self.csr.list = machine.inspect_csrs();
+        self.mem.list = machine.inspect_mem(page_base, page_size);
+        self.pc = machine.inspect_pc();
     }
 
     pub fn running_mode_selected(&mut self) {
@@ -182,23 +180,23 @@ impl <'a, D: DebugInterface> EmuState<'a, D> {
         }
     }
 
-    pub fn prev_page(&mut self) {
+    pub fn prev_page<D: DebugInterface>(&mut self, machine: &D) {
         let (_, dram_base, page_size) = self.machine_info.get_info();
 
         if self.page_selected != 0 {
             self.page_selected -= 1;
             let page_base = dram_base + (self.page_selected * page_size) as u32;
-            self.mem.list = self.machine.inspect_mem(page_base, page_size);
+            self.mem.list = machine.inspect_mem(page_base, page_size);
         }
     }
 
-    pub fn next_page(&mut self) {
+    pub fn next_page<D: DebugInterface>(&mut self, machine: &D) {
         let (dram_size, dram_base, page_size) = self.machine_info.get_info();
     
         if self.page_selected < dram_size / page_size {
             self.page_selected += 1;
             let page_base = dram_base + (self.page_selected * page_size) as u32;
-            self.mem.list = self.machine.inspect_mem(page_base, page_size);
+            self.mem.list = machine.inspect_mem(page_base, page_size);
         }
     }
 

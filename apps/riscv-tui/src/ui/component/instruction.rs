@@ -3,18 +3,17 @@ use ratatui::layout::Rect;
 use ratatui::widgets::ListItem;
 
 use riscv_core::constance::DRAM_BASE_ADDR;
-use riscv_core::debug::DebugInterface;
 
-use crate::ui::component::Componet;
-use crate::ui::state::{EmuMode, EmuState};
+use crate::ui::component::Component;
+use crate::state::{EmuMode, EmuState};
 
 const INSTRUCTION_TITLE: &str = "Instruction";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Instruction;
 
-impl Componet for Instruction {
-    fn render<D: DebugInterface>(f: &mut Frame, area: Rect, emu: &mut EmuState<D>) {
+impl Component for Instruction {
+    fn render(f: &mut Frame, area: Rect, emu: &mut EmuState) {
         let mut offset = 0;
 
         let items: Vec<ListItem> = emu.ins.list.iter().enumerate()

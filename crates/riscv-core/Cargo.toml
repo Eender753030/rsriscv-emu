@@ -6,10 +6,8 @@ edition.workspace = true
 
 [dependencies]
 riscv-decoder = {workspace = true}
+riscv-loader = {workspace = true}
 
 modular-bitfield = "0.13"
 
 thiserror = "2"
-
-[dev-dependencies]
-riscv-loader = {workspace = true}

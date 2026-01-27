@@ -1,5 +1,7 @@
 use riscv_decoder::prelude::*;
 
+use riscv_loader::LoadInfo;
+
 use super::{PC, RegisterFile, CsrFile, PrivilegeMode};
 use crate::core::{Access, AccessType, Mmu};
 use crate::device::bus::SystemBus;
@@ -18,6 +20,28 @@ pub struct Cpu {
 }
 
 impl Cpu {
+    pub fn load_info(&mut self, info: &LoadInfo) -> Result<(), RiscVError> {
+        for (code, addr) in info.code.iter() {
+            self.load(*addr, code)?
+        }
+        self.set_pc(info.pc_entry);
+        
+        if let Some(data_vec) = &info.data {
+            for (data, addr) in data_vec.iter() {
+                self.load(*addr, data)?
+            }
+        }
+        if let Some((start, size)) = &info.bss {
+            self.set_mem_zero(*start, *size)?
+        }
+        if let Some(other_vec) = &info.other {
+            for (data, addr) in other_vec.iter() {
+                self.load(*addr, data)?
+            }
+        }
+        Ok(())
+    }
+
     pub fn load(&mut self, addr: u32, data: &[u8]) -> Result<(), RiscVError> {
         let access = Access::new(addr, AccessType::Store);
         if self.bus.write_bytes(access, data.len(), data).is_err() {
