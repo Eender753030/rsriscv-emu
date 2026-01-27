@@ -28,7 +28,7 @@ impl Memory {
 
     /// Reset `Memory`'s `space` by fill 0
     pub fn reset(&mut self) {
-        self.pages.fill(None);
+        self.pages.iter_mut().flatten().for_each(|p| p.fill(0));
     }
 
     fn translate(&self, addr: usize) -> Option<&Page> {
