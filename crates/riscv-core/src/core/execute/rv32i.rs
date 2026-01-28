@@ -98,7 +98,7 @@ impl Cpu {
 
         let mut lsu = Lsu::new(
             &mut self.bus, 
-            #[cfg(feature = "zicsr")] &mut self.mmu, 
+            #[cfg(feature = "s")] &mut self.mmu, 
             #[cfg(feature = "zicsr")] &self.csrs, 
             #[cfg(feature = "zicsr")] self.mode
         );
@@ -120,7 +120,7 @@ impl Cpu {
         };
         let mut lsu = Lsu::new(
             &mut self.bus,
-            #[cfg(feature = "zicsr")] &mut self.mmu, 
+            #[cfg(feature = "s")] &mut self.mmu, 
             #[cfg(feature = "zicsr")] &self.csrs, 
             #[cfg(feature = "zicsr")] self.mode
         );

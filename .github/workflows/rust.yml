@@ -23,10 +23,10 @@ jobs:
     - uses: Swatinem/rust-cache@v2
     
     - name: Build
-      run: cargo build --verbose
+      run: cargo build --all-features --verbose
 
     - name: Run Unit Tests
-      run: cargo test --lib --verbose
+      run: cargo test --lib --all-features --verbose
       
     - name: Run Integration Tests (RISC-V Tests)
-      run: cargo test --test '*' -- --nocapture
+      run: cargo test --test '*' --all-features -- --nocapture

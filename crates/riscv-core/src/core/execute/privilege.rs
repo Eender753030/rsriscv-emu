@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use riscv_decoder::instruction::InstructionData;
 use riscv_decoder::instruction::PrivilegeOp::{self, *};
 
@@ -9,7 +11,9 @@ impl Cpu {
     pub(crate) fn execute_privileged(&mut self, op: PrivilegeOp, data: InstructionData) -> Result<bool> {
         let (mode, pc) = match op {
             Mret           => self.csrs.trap_mret(),
+            #[cfg(feature = "s")]
             Sret           => self.csrs.trap_sret(),
+            #[cfg(feature = "s")]
             SfenceVma(raw) => {
                 // when mstatus.TVM = 1 S-Mode will failed. 
                 // But mstatus.TVM not Implement for now

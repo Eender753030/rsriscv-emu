@@ -45,12 +45,13 @@ pub fn ins_to_string(ins: Instruction, addr: u32, sym_table: &HashMap<u32, Strin
             }
         },
         #[cfg(feature = "zicsr")]
+        #[allow(unused)]
         Privileged(op, data) => {
+            #[cfg(feature = "s")]
             if op.is_fence() {
-                format!("{:<12} x{}, x{}", op, data.rs1, data.rs2)
-            } else {
-                format!("{:<7}", op)
-            }
+                return format!("{:<12} x{}, x{}", op, data.rs1, data.rs2);
+            }  
+            format!("{:<7}", op)
         }
         #[cfg(feature = "m")]
         M(op, data) => {

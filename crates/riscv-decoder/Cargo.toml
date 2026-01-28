@@ -11,7 +11,9 @@ m = []
 zicsr = []
 zifencei = []
 
-std = ["m", "zicsr", "zifencei"]
+s = ["zicsr"] # Supervisor
+
+full = ["s", "m", "zicsr", "zifencei"]
 
 [dependencies]
 thiserror = "2"

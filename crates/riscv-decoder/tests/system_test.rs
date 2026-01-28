@@ -2,7 +2,7 @@
 
 use riscv_decoder::decoder::decode;
 use riscv_decoder::instruction::{Instruction, InstructionData};
-#[cfg(feature = "zicsr")]
+#[cfg(feature = "s")]
 use riscv_decoder::instruction::PrivilegeOp;
 #[cfg(feature = "zicsr")]
 use riscv_decoder::instruction::ZicsrOp; 
@@ -58,7 +58,7 @@ fn  test_zifencei() {
 
 
 #[test]
-#[cfg(feature = "zicsr")]
+#[cfg(feature = "s")]
 fn  test_privileged() {
     // sret
     let ins1 = 0x10200073;

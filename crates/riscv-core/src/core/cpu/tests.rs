@@ -1,6 +1,6 @@
-#[cfg(feature = "zicsr")] use riscv_decoder::decoder::decode;
-#[cfg(feature = "zicsr")] use riscv_decoder::instruction::Instruction;
-#[cfg(feature = "zicsr")] use crate::Exception;
+#[cfg(feature = "s")] use riscv_decoder::decoder::decode;
+#[cfg(feature = "s")] use riscv_decoder::instruction::Instruction;
+#[cfg(feature = "s")] use crate::Exception;
 #[cfg(feature = "zicsr")] use crate::core::privilege::PrivilegeMode;
 use crate::core::access::{Access, AccessType};
 use crate::core::cpu::Cpu;
@@ -103,7 +103,7 @@ fn test_exception_trap_handling() {
 }
 
 #[test]
-#[cfg(feature = "zicsr")]
+#[cfg(feature = "s")]
 fn test_sfence_vma() {
     let mut cpu = Cpu::default();
     

@@ -3,7 +3,7 @@ use riscv_decoder::prelude::*;
 use riscv_loader::LoadInfo;
 
 use crate::{Exception, Result, RiscVError, StdResult};
-#[cfg(feature = "zicsr")]
+#[cfg(feature = "s")]
 use crate::core::Mmu;
 #[cfg(feature = "zicsr")]
 use crate::core::csr::CsrFile;
@@ -23,7 +23,7 @@ pub struct Cpu {
     pub(crate) pc: PC,
     #[cfg(feature = "zicsr")]
     pub(crate) csrs: CsrFile,
-    #[cfg(feature = "zicsr")]
+    #[cfg(feature = "s")]
     pub(crate) mmu: Mmu,
     pub(crate) bus: SystemBus,
 }
@@ -81,11 +81,7 @@ impl Cpu {
         Ok(if let Err(execpt) = self.cycle() { 
             #[cfg(feature = "zicsr")]       
             self.trap_handle(execpt);
-            if cfg!(feature = "zicsr") {
-                Some(execpt)
-            } else {
-                None
-            }    
+            Some(execpt) 
         } else {
             None
         })
@@ -103,10 +99,10 @@ impl Cpu {
     fn fetch(&mut self) -> Result<u32> {
         let va_access = Access::new(self.pc.get(), AccessType::Fetch);
 
-        #[cfg(not(feature = "zicsr"))]
+        #[cfg(not(feature = "s"))]
         let pa_access = va_access;
 
-        #[cfg(feature = "zicsr")]
+        #[cfg(feature = "s")]
         let pa_access = self.mmu.translate(va_access, self.mode, self.csrs.check_satp() , &mut self.bus)?;
 
         #[cfg(feature = "zicsr")]

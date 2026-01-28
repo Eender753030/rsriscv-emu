@@ -1,6 +1,7 @@
 mod addr;
 mod mstatus;
 mod pmpcfg;
+#[cfg(feature = "s")]
 mod satp;
 
 use crate::{Exception, Result};
@@ -10,22 +11,23 @@ use crate::core::privilege::PrivilegeMode;
 use addr::CsrAddr;
 use mstatus::Mstatus;
 use pmpcfg::Pmpcfg;
+#[cfg(feature = "s")]
 use satp::Satp;
 
 pub(super) const PMPCFG_NUM: usize = 4;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct CsrFile {
-    stvec: u32,
-    sepc: u32,
-    scause: u32,
-    sscratch: u32,
-    stval: u32,
-    satp: Satp,
+    #[cfg(feature = "s")] stvec: u32,
+    #[cfg(feature = "s")] sepc: u32,
+    #[cfg(feature = "s")] scause: u32,
+    #[cfg(feature = "s")] sscratch: u32,
+    #[cfg(feature = "s")] stval: u32,
+    #[cfg(feature = "s")] satp: Satp,
 
     mstatus: Mstatus,
-    medeleg: u32,
-    mideleg: u32,
+    #[cfg(feature = "s")] medeleg: u32,
+    #[cfg(feature = "s")] mideleg: u32,
     mie: u32,
     mtvec: u32,
     mscratch: u32,
@@ -49,19 +51,19 @@ impl CsrFile {
             Ok(match CsrAddr::try_from(addr)? {
                 CsrAddr::Ustatus => 0,
 
-                CsrAddr::Sstatus => self.mstatus.read_s(),
-                CsrAddr::Sie => self.mie & self.mideleg,
-                CsrAddr::Stvec => self.stvec,
-                CsrAddr::Sscratch => self.sscratch,
-                CsrAddr::Sepc => self.sepc,
-                CsrAddr::Scause => self.scause,
-                CsrAddr::Stval => self.stval,
-                CsrAddr::Sip => self.mip & self.mideleg,
-                CsrAddr::Satp => self.satp.into(),
+                #[cfg(feature = "s")]CsrAddr::Sstatus => self.mstatus.read_s(),
+                #[cfg(feature = "s")]CsrAddr::Sie => self.mie & self.mideleg,
+                #[cfg(feature = "s")] CsrAddr::Stvec => self.stvec,
+                #[cfg(feature = "s")] CsrAddr::Sscratch => self.sscratch,
+                #[cfg(feature = "s")] CsrAddr::Sepc => self.sepc,
+                #[cfg(feature = "s")] CsrAddr::Scause => self.scause,
+                #[cfg(feature = "s")] CsrAddr::Stval => self.stval,
+                #[cfg(feature = "s")] CsrAddr::Sip => self.mip & self.mideleg,
+                #[cfg(feature = "s")] CsrAddr::Satp => self.satp.into(),
 
                 CsrAddr::Mstatus => self.mstatus.read_m(),
-                CsrAddr::Medeleg => self.medeleg,
-                CsrAddr::Mideleg => self.mideleg,
+                #[cfg(feature = "s")] CsrAddr::Medeleg => self.medeleg,
+                #[cfg(feature = "s")] CsrAddr::Mideleg => self.mideleg,
                 CsrAddr::Mie => self.mie,
                 CsrAddr::Mtvec => self.mtvec,
                 CsrAddr::Mscratch => self.mscratch,
@@ -84,19 +86,19 @@ impl CsrFile {
             match CsrAddr::try_from(addr)? {
                 CsrAddr::Ustatus => {},
 
-                CsrAddr::Sstatus => self.mstatus.write_s(data),
-                CsrAddr::Sie => self.mie = (self.mie & !self.mideleg) | (data & self.mideleg),
-                CsrAddr::Stvec => self.stvec = data,
-                CsrAddr::Sscratch => self.sscratch = data,
-                CsrAddr::Sepc => self.sepc = data,
-                CsrAddr::Scause => self.scause = data,
-                CsrAddr::Stval => self.stval = data,
-                CsrAddr::Sip => self.mip = (self.mip & !self.mideleg) | (data & self.mideleg),
-                CsrAddr::Satp => self.satp = data.into(),
+                #[cfg(feature = "s")] CsrAddr::Sstatus => self.mstatus.write_s(data),
+                #[cfg(feature = "s")] CsrAddr::Sie => self.mie = (self.mie & !self.mideleg) | (data & self.mideleg),
+                #[cfg(feature = "s")] CsrAddr::Stvec => self.stvec = data,
+                #[cfg(feature = "s")] CsrAddr::Sscratch => self.sscratch = data,
+                #[cfg(feature = "s")] CsrAddr::Sepc => self.sepc = data,
+                #[cfg(feature = "s")] CsrAddr::Scause => self.scause = data,
+                #[cfg(feature = "s")] CsrAddr::Stval => self.stval = data,
+                #[cfg(feature = "s")] CsrAddr::Sip => self.mip = (self.mip & !self.mideleg) | (data & self.mideleg),
+                #[cfg(feature = "s")] CsrAddr::Satp => self.satp = data.into(),
 
                 CsrAddr::Mstatus => self.mstatus.write_m(data),
-                CsrAddr::Medeleg => self.medeleg = data,
-                CsrAddr::Mideleg => self.mideleg = data,
+                #[cfg(feature = "s")] CsrAddr::Medeleg => self.medeleg = data,
+                #[cfg(feature = "s")] CsrAddr::Mideleg => self.mideleg = data,
                 CsrAddr::Mie => self.mie = data,
                 CsrAddr::Mtvec => self.mtvec = data,
                 CsrAddr::Mscratch => self.mscratch = data,
@@ -116,6 +118,7 @@ impl CsrFile {
     pub fn trap_entry(&mut self, curr_pc: u32, except_code: Exception, mode: PrivilegeMode) -> (PrivilegeMode, u32) {
         let target_mode = match mode {
             PrivilegeMode::Machine => PrivilegeMode::Machine,
+            #[cfg(feature = "s")]
             PrivilegeMode::Supervisor | PrivilegeMode::User => {
                 if self.medeleg & (1 << (u32::from(except_code))) > 0 {
                     PrivilegeMode::Supervisor
@@ -123,6 +126,8 @@ impl CsrFile {
                     PrivilegeMode::Machine
                 }
             }
+            #[cfg(not(feature = "s"))]
+            PrivilegeMode::User => PrivilegeMode::Machine
         };
 
         let tval = match except_code {
@@ -153,6 +158,7 @@ impl CsrFile {
                     base_addr
                 })
             },
+            #[cfg(feature = "s")]
             PrivilegeMode::Supervisor => {
                 self.sepc = curr_pc;
                 self.scause = except_code.into();
@@ -182,6 +188,7 @@ impl CsrFile {
         (mode, self.mepc)
     } 
 
+    #[cfg(feature = "s")]
     pub fn trap_sret(&mut self) -> (PrivilegeMode, u32) {
         let mode = match self.mstatus.spp() {
             0b0 => PrivilegeMode::User,
@@ -195,6 +202,7 @@ impl CsrFile {
         (mode, self.sepc)
     } 
 
+    #[cfg(feature = "s")]
     pub fn check_satp(&self) -> Option<(u16, u32)> {
         if self.satp.mode() > 0  {
             Some((self.satp.asid(), self.satp.ppn()))
@@ -273,17 +281,17 @@ impl CsrFile {
         let mut csr_list: Vec<(String, u32)> = vec![
             ("ustatus".to_string(), 0),
             ("sstatus".to_string(), self.mstatus.read_s()),
-            ("sie".to_string(), self.mie & self.mideleg),
-            ("stvec".to_string(), self.stvec),
-            ("sscratch".to_string(), self.sscratch),
-            ("sepc".to_string(), self.sepc),
-            ("scause".to_string(), self.scause),
-            ("stval".to_string(), self.stval),
-            ("sip".to_string(), self.mip & self.mideleg),
-            ("stap".to_string(), self.satp.into()),
+            #[cfg(feature = "s")] ("sie".to_string(), self.mie & self.mideleg),
+            #[cfg(feature = "s")] ("stvec".to_string(), self.stvec),
+            #[cfg(feature = "s")] ("sscratch".to_string(), self.sscratch),
+            #[cfg(feature = "s")] ("sepc".to_string(), self.sepc),
+            #[cfg(feature = "s")] ("scause".to_string(), self.scause),
+            #[cfg(feature = "s")] ("stval".to_string(), self.stval),
+            #[cfg(feature = "s")] ("sip".to_string(), self.mip & self.mideleg),
+            #[cfg(feature = "s")] ("stap".to_string(), self.satp.into()),
             ("mstatus".to_string(), self.mstatus.read_m()),
-            ("medeleg".to_string(), self.medeleg),
-            ("mideleg".to_string(), self.mideleg),
+            #[cfg(feature = "s")] ("medeleg".to_string(), self.medeleg),
+            #[cfg(feature = "s")] ("mideleg".to_string(), self.mideleg),
             ("mie".to_string(), self.mie),
             ("mtvec".to_string(), self.mtvec),
             ("mscratch".to_string(), self.mscratch),

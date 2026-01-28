@@ -10,6 +10,7 @@ fn test_csr_rw_permission() {
     assert!(csr.write(0x340, val, PrivilegeMode::Machine).is_ok());
     assert_eq!(csr.read(0x340, PrivilegeMode::Machine), Ok(val));
 
+    #[cfg(feature = "s")]
     assert_eq!(
         csr.read(0x340, PrivilegeMode::Supervisor),
         Err(Exception::IllegalInstruction(0x340))
@@ -30,9 +31,11 @@ fn test_mstatus_behavior() {
     
     let read_back = csr.read(0x300, PrivilegeMode::Machine).unwrap();
     assert_eq!(read_back & pattern, pattern);
-    let sstatus = csr.read(0x100, PrivilegeMode::Supervisor).unwrap();
-    assert_eq!(sstatus, 0);
     
+    #[cfg(feature = "s")] {
+        let sstatus = csr.read(0x100, PrivilegeMode::Supervisor).unwrap();
+        assert_eq!(sstatus, 0);
+    }
 }
 
 #[test]
@@ -82,6 +85,7 @@ fn test_trap_return_mret() {
 }
 
 #[test]
+#[cfg(feature = "s")]
 fn test_exception_delegation() {
     let mut csr = CsrFile::default();
     let fault_pc = 0x8000_3000;
@@ -130,9 +134,11 @@ mod pmp {
 
         assert!(csr.pmp_check(access, 4, mode).is_ok());
 
+        #[cfg(feature = "s")] {
         let mode = PrivilegeMode::Supervisor;
         assert_eq!(csr.pmp_check(access, 4, mode),
             Err(Exception::LoadAccessFault(0x8000_0000)));
+        }
     }
 
     #[test]
@@ -144,7 +150,7 @@ mod pmp {
         set_pmp_entry(&mut csr, 0, cfg, addr + 1000 >> 2);
 
         let mut access = Access::new(addr, AccessType::Load);
-        let mode = PrivilegeMode::Supervisor;
+        let mode = PrivilegeMode::User;
 
         assert!(csr.pmp_check(access, 4, mode).is_ok());
 
@@ -166,7 +172,7 @@ mod pmp {
         set_pmp_entry(&mut csr, 0, cfg, addr >> 2);
 
         let mut access = Access::new(addr, AccessType::Store);
-        let mode = PrivilegeMode::Supervisor;
+        let mode = PrivilegeMode::User;
 
         assert!(csr.pmp_check(access, 2, mode).is_ok());
 
@@ -188,7 +194,7 @@ mod pmp {
         set_pmp_entry(&mut csr, 0, cfg, pmpaddr);
 
         let mut access = Access::new(addr, AccessType::Load);
-        let mode = PrivilegeMode::Supervisor;
+        let mode = PrivilegeMode::User;
 
         assert!(csr.pmp_check(access, 2, mode).is_ok());
 
@@ -203,7 +209,7 @@ mod pmp {
     #[test]
     fn test_priority() {
         let mut csr = CsrFile::default();
-        let mode = PrivilegeMode::Supervisor;
+        let mode = PrivilegeMode::User;
         // pmp0: A = 01
         set_pmp_entry(&mut csr, 0, 1 << 3, 0x8000_1000 >> 2);
         // pmp1: A = 01, R = 1, W = 1, X = 1

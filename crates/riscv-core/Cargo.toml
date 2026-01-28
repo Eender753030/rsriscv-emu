@@ -11,7 +11,9 @@ m = ["riscv-decoder/m"]
 zicsr = ["riscv-decoder/zicsr"]
 zifencei = ["riscv-decoder/zifencei"]
 
-std = ["m", "zicsr", "zifencei"]
+s = ["zicsr", "riscv-decoder/s"] # Supervisor
+
+full = ["s", "m", "zicsr", "zifencei"]
 
 [dependencies]
 riscv-decoder = {workspace = true}

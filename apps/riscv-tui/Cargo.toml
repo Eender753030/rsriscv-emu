@@ -5,9 +5,9 @@ authors.workspace = true
 edition.workspace = true
 
 [dependencies]
-riscv-core = {workspace = true, features = ["std"]}
+riscv-core = {workspace = true, features = ["full"]}
 riscv-loader = {workspace = true}
-riscv-disasm = {workspace = true, features = ["std"]}
+riscv-disasm = {workspace = true, features = ["full"]}
 
 crossterm = "0.29.0"
 ratatui = {version = "0.30.0", features = ["crossterm"]}

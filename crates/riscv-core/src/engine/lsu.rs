@@ -1,7 +1,7 @@
 use crate::{Exception, Result};
 #[cfg(feature = "zicsr")]
 use crate::core::{CsrFile, PrivilegeMode};
-#[cfg(feature = "zicsr")]
+#[cfg(feature = "s")]
 use crate::core::Mmu;
 use crate::core::access::{Access, AccessType, Physical, Virtual};
 use crate::device::bus::SystemBus;
@@ -9,7 +9,7 @@ use crate::device::bus::SystemBus;
 #[derive(Debug, PartialEq, Eq)]
 pub struct Lsu<'a> {
     bus: &'a mut SystemBus,
-    #[cfg(feature = "zicsr")] mmu: &'a mut Mmu,
+    #[cfg(feature = "s")] mmu: &'a mut Mmu,
     #[cfg(feature = "zicsr")] csrs: &'a CsrFile,
     #[cfg(feature = "zicsr")] mode: PrivilegeMode, 
 }
@@ -17,13 +17,13 @@ pub struct Lsu<'a> {
 impl<'a> Lsu<'a> {
     pub fn new(
         bus: &'a mut SystemBus, 
-        #[cfg(feature = "zicsr")] mmu: &'a mut Mmu, 
+        #[cfg(feature = "s")] mmu: &'a mut Mmu, 
         #[cfg(feature = "zicsr")] csrs: &'a CsrFile, 
         #[cfg(feature = "zicsr")] mode: PrivilegeMode
     ) -> Self {
         Self { 
             bus,
-            #[cfg(feature = "zicsr")] mmu,  
+            #[cfg(feature = "s")] mmu,  
             #[cfg(feature = "zicsr")] csrs, 
             #[cfg(feature = "zicsr")] mode 
         }
@@ -67,18 +67,22 @@ impl<'a> Lsu<'a> {
         #[cfg(not(feature = "zicsr"))] 
         return  Ok(va_access.bypass());
     
-        #[cfg(feature = "zicsr")] {
+        #[cfg(not(feature = "s"))]
+        let pa_access = va_access.bypass();
+
+        #[cfg(feature = "s")]
             let pa_access = self.mmu.translate(
                 va_access, self.mode, self.csrs.check_satp(), self.bus
             )?;   
             
+        #[cfg(feature = "zicsr")] {
             self.csrs.pmp_check(pa_access, num, self.mode).map_err(|e| match e {
                 Exception::LoadAccessFault(_)  => Exception::LoadAccessFault(va_access.addr),
                 Exception::StoreAccessFault(_) => Exception::StoreAccessFault(va_access.addr),
                 _ => e,
             })?;
-            Ok(pa_access)
         }
+        Ok(pa_access)      
     }
 }
 
@@ -87,12 +91,14 @@ mod tests {
     use super::Lsu;
     use crate::device::bus::{SystemBus, DRAM_BASE_ADDR};
     #[cfg(feature = "zicsr")]
-    use crate::core::{CsrFile, Mmu, PrivilegeMode};
+    use crate::core::{CsrFile, PrivilegeMode};
+    #[cfg(feature = "s")]
+    use crate::core::Mmu;
 
     #[test]
     fn test_store_load_word() {
         let mut bus = SystemBus::default();
-        #[cfg(feature = "zicsr")]
+        #[cfg(feature = "s")]
         let mut mmu = Mmu::default();
         #[cfg(feature = "zicsr")]
         let csrs = CsrFile::default();
@@ -100,7 +106,7 @@ mod tests {
         let mode = PrivilegeMode::Machine;
         let mut lsu = Lsu::new(
             &mut bus,
-            #[cfg(feature = "zicsr")] &mut mmu,
+            #[cfg(feature = "s")] &mut mmu,
             #[cfg(feature = "zicsr")] &csrs, 
             #[cfg(feature = "zicsr")] mode
         );
@@ -116,7 +122,7 @@ mod tests {
     #[test]
     fn test_offset_handling() {
         let mut bus = SystemBus::default();
-        #[cfg(feature = "zicsr")]
+        #[cfg(feature = "s")]
         let mut mmu = Mmu::default();
         #[cfg(feature = "zicsr")]
         let csrs = CsrFile::default();
@@ -125,7 +131,7 @@ mod tests {
 
         let mut lsu = Lsu::new(
             &mut bus,
-            #[cfg(feature = "zicsr")] &mut mmu,
+            #[cfg(feature = "s")] &mut mmu,
             #[cfg(feature = "zicsr")] &csrs, 
             #[cfg(feature = "zicsr")] mode
         );
@@ -147,7 +153,7 @@ mod tests {
     fn test_sign_extension() {
         let mut bus = SystemBus::default();
         let addr = DRAM_BASE_ADDR + 0x20;     
-        #[cfg(feature = "zicsr")]
+        #[cfg(feature = "s")]
         let mut mmu = Mmu::default();
         #[cfg(feature = "zicsr")]
         let csrs = CsrFile::default();
@@ -156,7 +162,7 @@ mod tests {
 
         let mut lsu = Lsu::new(
             &mut bus,
-            #[cfg(feature = "zicsr")] &mut mmu,
+            #[cfg(feature = "s")] &mut mmu,
             #[cfg(feature = "zicsr")] &csrs, 
             #[cfg(feature = "zicsr")] mode
         );

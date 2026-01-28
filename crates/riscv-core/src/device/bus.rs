@@ -62,6 +62,7 @@ impl SystemBus {
         Ok(u32::from_le_bytes(four_bytes))
     }
 
+    #[allow(unused)]
     pub fn write_u32(&mut self, access: Access<Physical>, data: u32) -> Result<()> {
         self.write_u32_bytes(access, data, 4)
     }
