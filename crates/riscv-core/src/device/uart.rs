@@ -2,7 +2,7 @@ use std::io::{self, Write};
 
 use crate::core::access::{Access, Physical};
 use crate::device::Device;
-use crate::Exception;
+use crate::Result;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Uart {
@@ -11,14 +11,14 @@ pub struct Uart {
 }
 
 impl Device for Uart {
-    fn read_byte(&self, assess: Access<Physical>) -> Result<u8, Exception> {
+    fn read_byte(&self, assess: Access<Physical>) -> Result<u8> {
         Ok(match assess.addr {
             0x05 => 0x20,
             _    => 0,
         })
     }
 
-    fn write_byte(&mut self, assess: Access<Physical>, data: u8) -> Result<(), Exception> {
+    fn write_byte(&mut self, assess: Access<Physical>, data: u8) -> Result<()> {
         if assess.addr == 0x00 { 
             print!("{}", data as char);
    
@@ -27,14 +27,14 @@ impl Device for Uart {
         Ok(())
     }
 
-    fn read_bytes(&self, assess: Access<Physical>, size: usize, des: &mut [u8]) -> Result<(), Exception> {
+    fn read_bytes(&self, assess: Access<Physical>, size: usize, des: &mut [u8]) -> Result<()> {
         if size > 0 {
             des[0] = self.read_byte(assess)?;
         }
         Ok(())
     }
 
-    fn write_bytes(&mut self, assess: Access<Physical>, size: usize, src: &[u8]) -> Result<(), Exception> {
+    fn write_bytes(&mut self, assess: Access<Physical>, size: usize, src: &[u8]) -> Result<()> {
         if size > 0 {
             self.write_byte(assess, src[0])?;
         }

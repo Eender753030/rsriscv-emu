@@ -1,6 +1,6 @@
+use crate::{Exception, Result};
 use crate::core::{CsrFile, PrivilegeMode};
 use crate::core::Mmu;
-use crate::exception::Exception;
 use crate::core::access::{Access, AccessType, Physical, Virtual};
 use crate::device::bus::SystemBus;
 
@@ -17,7 +17,7 @@ impl<'a> Lsu<'a> {
         Self { mmu, bus, csrs, mode }
     }
 
-    pub fn load(&mut self, src: u32, offset: i32, num: usize) -> Result<u32, Exception> {
+    pub fn load(&mut self, src: u32, offset: i32, num: usize) -> Result<u32> {
         let addr = src.wrapping_add_signed(offset);
         let va_access = Access::new(addr, AccessType::Load);
         let pa_access = self.pre_work(va_access, num)?;
@@ -28,7 +28,7 @@ impl<'a> Lsu<'a> {
         })
     }
 
-    pub fn load_signed(&mut self, src: u32, offset: i32, num: usize) -> Result<u32, Exception> {
+    pub fn load_signed(&mut self, src: u32, offset: i32, num: usize) -> Result<u32> {
         let addr = src.wrapping_add_signed(offset);
         let va_access = Access::new(addr, AccessType::Load);
         let pa_access = self.pre_work(va_access, num)?;
@@ -39,7 +39,7 @@ impl<'a> Lsu<'a> {
         })
     }
 
-    pub fn store(&mut self, des: u32, src: u32, offset: i32, num: usize) -> Result<(), Exception> {
+    pub fn store(&mut self, des: u32, src: u32, offset: i32, num: usize) -> Result<()> {
         let addr = des.wrapping_add_signed(offset);
         let va_access = Access::new(addr, AccessType::Store);
         let pa_access = self.pre_work(va_access, num)?;
@@ -50,7 +50,7 @@ impl<'a> Lsu<'a> {
         })
     }
 
-    fn pre_work(&mut self, va_access: Access<Virtual>, num: usize) -> Result<Access<Physical>, Exception> {
+    fn pre_work(&mut self, va_access: Access<Virtual>, num: usize) -> Result<Access<Physical>> {
         let pa_access = self.mmu.translate(
             va_access, self.mode, self.csrs.check_satp(), self.bus
         )?;   

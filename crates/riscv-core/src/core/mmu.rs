@@ -1,7 +1,7 @@
 mod sv32;
 mod tlb;
 
-use crate::Exception;
+use crate::Result;
 use crate::core::privilege::PrivilegeMode;
 use crate::device::bus::SystemBus;
 use crate::core::access::{Access, AccessType, Physical, Virtual};
@@ -23,7 +23,7 @@ impl Mmu {
         mode: PrivilegeMode, 
         satp_opt: Option<(u16, u32)>,
         bus: &mut SystemBus
-    ) -> Result<Access<Physical>, Exception> {
+    ) -> Result<Access<Physical>> {
         let v_addr = access.addr; 
 
         if mode == PrivilegeMode::Machine {
@@ -97,7 +97,7 @@ impl Mmu {
         Ok(access.into_physical(p_addr))
     }
 
-    fn pte_walk(vpn: u16, ppn: u32, access: &Access<Virtual>, bus: &mut SystemBus) -> Result<(Sv32Pte, u32, bool), Exception> {
+    fn pte_walk(vpn: u16, ppn: u32, access: &Access<Virtual>, bus: &mut SystemBus) -> Result<(Sv32Pte, u32, bool)> {
         let pte_addr = (ppn << 12) + (vpn * 4) as u32;
 
         let pte_access = Access::new(pte_addr, AccessType::Load);
@@ -111,7 +111,7 @@ impl Mmu {
         Ok((pte, pte_addr, pte.is_leaf()))
     }
 
-    fn access_check(pte: &Sv32Pte, access: &Access<Virtual>, mode: PrivilegeMode) -> Result<(), Exception> {
+    fn access_check(pte: &Sv32Pte, access: &Access<Virtual>, mode: PrivilegeMode) -> Result<()> {
         let can_access = match access.kind {
             AccessType::Load  => pte.can_read(),
             AccessType::Store => pte.can_write(),

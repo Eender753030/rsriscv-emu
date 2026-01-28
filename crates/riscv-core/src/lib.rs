@@ -14,4 +14,6 @@ pub mod constance {
 pub use core::RiscV;
 pub use error::RiscVError;
 pub use exception::Exception;
-pub use exception::Result;
+
+pub type StdResult<T, E> = std::result::Result<T, E>;
+pub type Result<T> = std::result::Result<T, Exception>;

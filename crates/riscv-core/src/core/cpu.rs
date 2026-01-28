@@ -2,12 +2,11 @@ use riscv_decoder::prelude::*;
 
 use riscv_loader::LoadInfo;
 
+use crate::{Exception, Result, RiscVError, StdResult};
 use crate::core::Mmu;
 use crate::core::access::{Access, AccessType};
 use crate::device::bus::SystemBus;
 use crate::device::Device;
-use crate::error::RiscVError;
-use crate::exception::Exception;
 use crate::debug::*;
 use super::{PC, RegisterFile, CsrFile, PrivilegeMode};
 
@@ -22,7 +21,7 @@ pub struct Cpu {
 }
 
 impl Cpu {
-    pub fn load_info(&mut self, info: &LoadInfo) -> Result<(), RiscVError> {
+    pub fn load_info(&mut self, info: &LoadInfo) -> StdResult<(), RiscVError> {
         for (code, addr) in info.code.iter() {
             self.load(*addr, code)?
         }
@@ -44,7 +43,7 @@ impl Cpu {
         Ok(())
     }
 
-    pub fn load(&mut self, addr: u32, data: &[u8]) -> Result<(), RiscVError> {
+    pub fn load(&mut self, addr: u32, data: &[u8]) -> StdResult<(), RiscVError> {
         let access = Access::new(addr, AccessType::Store);
         if self.bus.write_bytes(access, data.len(), data).is_err() {
             Err(RiscVError::LoadFailed)
@@ -57,7 +56,7 @@ impl Cpu {
         self.pc.set(entry);
     }
 
-    pub fn set_mem_zero(&mut self, addr: u32, size: usize) -> Result<(), RiscVError> {
+    pub fn set_mem_zero(&mut self, addr: u32, size: usize) -> std::result::Result<(), RiscVError> {
         for i in 0..size {
             let access = Access::new(addr + i as u32, AccessType::Store);
             self.bus.write_byte(access, 0)
@@ -66,11 +65,11 @@ impl Cpu {
         Ok(())
     }
 
-    pub fn run(&mut self) -> Result<(), RiscVError> {
+    pub fn run(&mut self) -> StdResult<(), RiscVError> {
         loop { self.step()?; }
     }
  
-    pub fn step(&mut self) -> Result<Option<Exception>, RiscVError> {
+    pub fn step(&mut self) -> StdResult<Option<Exception>, RiscVError> {
         Ok(if let Err(execpt) = self.cycle() {        
             self.trap_handle(execpt);
             Some(execpt)
@@ -79,7 +78,7 @@ impl Cpu {
         })
     }
 
-    fn cycle(&mut self) -> Result<(), Exception> {
+    fn cycle(&mut self) -> Result<()> {
         let raw = self.fetch()?;
         
         let ins = self.decode(raw)?;
@@ -88,7 +87,7 @@ impl Cpu {
         Ok(())
     }
 
-    fn fetch(&mut self) -> Result<u32, Exception> {
+    fn fetch(&mut self) -> Result<u32> {
         let va_access = Access::new(self.pc.get(), AccessType::Fetch);
 
         let pa_access = self.mmu.translate(va_access, self.mode, self.csrs.check_satp() , &mut self.bus)?;
@@ -104,12 +103,12 @@ impl Cpu {
         })
     }
 
-    fn decode(&self, bytes: u32) -> Result<Instruction, Exception> {
+    fn decode(&self, bytes: u32) -> Result<Instruction> {
         decoder::decode(bytes)
             .map_err(|_| Exception::IllegalInstruction(bytes))
     }
 
-    fn execute(&mut self, ins: Instruction) -> Result<(), Exception> {
+    fn execute(&mut self, ins: Instruction) -> Result<()> {
         match ins {
             Instruction::Base(op, data)  => if self.execute_rv32i(op, data)? {
                     return Ok(());

@@ -3,7 +3,7 @@ mod mstatus;
 mod pmpcfg;
 mod satp;
 
-use crate::Exception;
+use crate::{Exception, Result};
 use crate::core::access::{Access, Physical};
 use crate::core::privilege::PrivilegeMode;
 
@@ -42,7 +42,7 @@ const MODE_MASK: u16 = 3 << 8;
 // const INTERRUPT_MASK: u32 = 1 << 31;
 
 impl CsrFile {
-    pub fn read(&mut self, addr: u16, mode: PrivilegeMode) -> Result<u32, Exception> {    
+    pub fn read(&mut self, addr: u16, mode: PrivilegeMode) -> Result<u32> {    
         if (mode as u16) < ((addr & MODE_MASK) >> 8) {
             Err(Exception::IllegalInstruction(addr as u32))
         } else {
@@ -77,7 +77,7 @@ impl CsrFile {
         }
     }
 
-    pub fn write(&mut self, addr: u16, data: u32, mode: PrivilegeMode) -> Result<(), Exception> {
+    pub fn write(&mut self, addr: u16, data: u32, mode: PrivilegeMode) -> Result<()> {
         if (mode as u16) < ((addr & MODE_MASK) >> 8) {
             Err(Exception::IllegalInstruction(addr as u32))
         } else {
@@ -203,7 +203,7 @@ impl CsrFile {
         }
     }
 
-    pub fn pmp_check(&self, access: Access<Physical>, size: usize, mode: PrivilegeMode) -> Result<(),Exception> {
+    pub fn pmp_check(&self, access: Access<Physical>, size: usize, mode: PrivilegeMode) -> Result<()> {
         use pmpcfg::MatchingMode::*;
         let mut is_match = None;
         for i in 0..PMPCFG_NUM * 4 {
