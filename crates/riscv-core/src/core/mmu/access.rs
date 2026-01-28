@@ -29,7 +29,7 @@ impl<T> Access<T> {
         Access { addr, kind, _marker: PhantomData }
     }
     
-    pub fn to_access_exception(self) -> Exception {
+    pub fn into_access_exception(self) -> Exception {
         match self.kind {    
             Load  => Exception::LoadAccessFault(self.addr),
             Store => Exception::StoreAccessFault(self.addr),
@@ -37,7 +37,7 @@ impl<T> Access<T> {
         }
     }
 
-    pub fn to_page_exception(self) -> Exception {
+    pub fn into_page_exception(self) -> Exception {
         match self.kind {
             Load => Exception::LoadPageFault(self.addr),
             Store => Exception::StoreOrAmoPageFault(self.addr),

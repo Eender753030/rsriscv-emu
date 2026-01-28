@@ -60,7 +60,7 @@ impl Device for Memory {
         if let Some(page) = self.translate(addr) {
             Ok(page[addr % PAGE_SIZE])
         } else {
-            Err(access.to_access_exception())
+            Err(access.into_access_exception())
         }
     }
 
@@ -71,7 +71,7 @@ impl Device for Memory {
             page[addr % PAGE_SIZE] = data;
             Ok(())
         } else {
-            Err(access.to_access_exception())
+            Err(access.into_access_exception())
         }   
     }
 
@@ -86,7 +86,7 @@ impl Device for Memory {
 
             let page = self.translate(addr);
             match page {
-                None    => return Err(access.to_access_exception()),
+                None    => return Err(access.into_access_exception()),
                 Some(p) => des[start..start + len].copy_from_slice(&p[p_start..p_start + len]),
             }
 
@@ -108,7 +108,7 @@ impl Device for Memory {
             let page = self.translate_mut(addr);
             match page {
                 None => 
-                    return Err(access.to_access_exception()),
+                    return Err(access.into_access_exception()),
                 Some(p) => 
                     p[p_start..p_start + len].copy_from_slice(&src[start..start + len]),
             }

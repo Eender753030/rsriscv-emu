@@ -12,6 +12,6 @@ use register::RegisterFile;
 pub(crate) use csr::CsrFile;
 pub(crate) use privilege::PrivilegeMode;
 pub(crate) use mmu::Mmu;
-pub(crate) use mmu::access::{Access, AccessType, Physical};
+pub(crate) use mmu::access::{Access, AccessType, Physical, Virtual};
 
 pub use cpu::Cpu as RiscV;

@@ -14,6 +14,12 @@ impl From<u32> for Sv32Vpn {
     }
 }
 
+impl From<Sv32Vpn> for u32 {
+    fn from(value: Sv32Vpn) -> Self {
+        Self::from_le_bytes(value.into_bytes())
+    }
+}
+
 #[bitfield]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Sv32Pte {
@@ -22,7 +28,7 @@ pub struct Sv32Pte {
     w: B1,
     x: B1,
     u: B1,
-    #[skip] __: B1,
+    g: B1,
     a: B1,
     d: B1,
     #[skip] __: B2,
@@ -44,6 +50,10 @@ impl From<Sv32Pte> for u32 {
 impl Sv32Pte {
     pub fn is_valid(&self) -> bool {
         self.v() > 0
+    }
+
+    pub fn is_global(&self) -> bool {
+        self.g() > 0
     }
 
     pub fn is_access_zero_and_set(&mut self) -> bool {
@@ -82,5 +92,13 @@ impl Sv32Pte {
 
     pub fn can_user(&self) -> bool {
         self.u() > 0
+    }
+
+    pub fn is_accessed(&self) -> bool {
+        self.a() > 0
+    }
+
+    pub fn is_dirty(&self) -> bool {
+        self.d() > 0
     }
 }

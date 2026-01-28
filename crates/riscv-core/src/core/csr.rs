@@ -195,9 +195,9 @@ impl CsrFile {
         (mode, self.sepc)
     } 
 
-    pub fn check_satp(&self) -> Option<u32> {
+    pub fn check_satp(&self) -> Option<(u16, u32)> {
         if self.satp.mode() > 0  {
-            Some(self.satp.ppn())
+            Some((self.satp.asid(), self.satp.ppn()))
         } else {
             None
         }
@@ -224,13 +224,13 @@ impl CsrFile {
                     return Ok(());
                 }
                 if !pmpcfg.access_check(access) {
-                    return Err(access.to_access_exception());
+                    return Err(access.into_access_exception());
                 }
                 Ok(())
             },
             None => match mode {
                 PrivilegeMode::Machine => Ok(()),
-                _                      => Err(access.to_access_exception()),
+                _                      => Err(access.into_access_exception()),
             }
         }
     }
@@ -267,7 +267,7 @@ impl CsrFile {
         let pmp_list = self.pmpcfg.iter().enumerate()
             .map(|(i, cfg)| (format!("pmpcfg{}", i), (*cfg).into()))
             .chain(self.pmpaddr.iter().enumerate()
-                .map(|(i, addr)| (format!("pmpaddr{}", i), (*addr).into()))
+                .map(|(i, addr)| (format!("pmpaddr{}", i), *addr))
             );
 
         let mut csr_list: Vec<(String, u32)> = vec![

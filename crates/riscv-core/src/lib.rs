@@ -14,3 +14,4 @@ pub mod constance {
 pub use core::RiscV;
 pub use error::RiscVError;
 pub use exception::Exception;
+pub use exception::Result;

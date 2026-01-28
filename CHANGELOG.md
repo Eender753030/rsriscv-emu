@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 ### Added
+- **TLB**: Added TLB for MMU. Use P-LRU for victim algorithm.
 - **PMP**: Added Physical Memory Protection (PMP) that check between MMU and Bus
 - **TUI: Exception Panel**: Added exception panel that shows last exception which be raised by CPU
 

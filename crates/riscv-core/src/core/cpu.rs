@@ -16,6 +16,7 @@ pub struct Cpu {
     pub(crate) regs: RegisterFile,
     pub(crate) pc: PC,
     pub(crate) csrs: CsrFile,
+    pub(crate) mmu: Mmu,
     pub(crate) bus: SystemBus,
 }
 
@@ -89,17 +90,17 @@ impl Cpu {
     fn fetch(&mut self) -> Result<u32, Exception> {
         let va_access = Access::new(self.pc.get(), super::AccessType::Fetch);
 
-        let pa_access = Mmu::translate(va_access, self.mode, self.csrs.check_satp(), &mut self.bus)?;
+        let pa_access = self.mmu.translate(va_access, self.mode, self.csrs.check_satp() , &mut self.bus)?;
 
-        self.csrs.pmp_check(pa_access, 4, self.mode).or_else(|e| Err(match e {
+        self.csrs.pmp_check(pa_access, 4, self.mode).map_err(|e| match e {
             Exception::InstructionAccessFault(_) => Exception::InstructionAccessFault(va_access.addr),
             _ => e
-        }))?;
+        })?;
 
-        self.bus.read_u32(pa_access).or_else(|e| Err(match e {
+        self.bus.read_u32(pa_access).map_err(|e| match e {
             Exception::InstructionAccessFault(_) => Exception::InstructionAccessFault(va_access.addr),
             _ => e
-        }))
+        })
     }
 
     fn decode(&self, bytes: u32) -> Result<Instruction, Exception> {

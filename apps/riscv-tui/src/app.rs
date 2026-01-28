@@ -30,7 +30,7 @@ impl EmuApp {
         let ins_len: usize = info.code.iter()
             .map(|(code, _)| code.len() / 4).sum();
 
-        let state = EmuState::new(&mut machine, ins_len, ins_list);
+        let state = EmuState::new(&machine, ins_len, ins_list);
 
         Ok(EmuApp { machine, info, state, should_quit: false })
     }

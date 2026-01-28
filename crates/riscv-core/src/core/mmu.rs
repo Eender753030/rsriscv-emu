@@ -1,4 +1,5 @@
 mod sv32;
+mod tlb;
 
 pub mod access;
 
@@ -7,84 +8,112 @@ use crate::core::privilege::PrivilegeMode;
 use crate::device::bus::SystemBus;
 
 use sv32::{Sv32Pte, Sv32Vpn};
+use tlb::{Tlb, TlbResult};
 use access::{Access, AccessType, Physical, Virtual};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub struct Mmu;
+pub struct Mmu {
+    tlb: Tlb,
+    hit_count: usize,
+    miss_count: usize,
+}
 
 impl Mmu {
-    pub fn translate(access: Access<Virtual>, mode: PrivilegeMode, ppn_opt: Option<u32>, bus: &mut SystemBus) -> Result<Access<Physical>, Exception> {
+    pub fn translate(
+        &mut self, 
+        access: Access<Virtual>, 
+        mode: PrivilegeMode, 
+        satp_opt: Option<(u16, u32)>,
+        bus: &mut SystemBus
+    ) -> Result<Access<Physical>, Exception> {
         let v_addr = access.addr; 
-        Ok(match mode {
-            PrivilegeMode::Machine => access.bypass(),
-            PrivilegeMode::Supervisor | PrivilegeMode::User => {
-                if let Some(ppn) = ppn_opt {
-                    let vpn = Sv32Vpn::from(v_addr);
-                    let (pte1, pte1_addr, is_leaf) = Self::pte_walk(
-                        vpn.vpn_1() as u32, ppn, &access, bus)?;
-             
-                    let pte0_opt = if is_leaf {
-                        None
-                    } else {
-                        let (pte0, pte0_addr, is_leaf) = Self::pte_walk(
-                            vpn.vpn_0() as u32, pte1.ppn(), &access, bus)?;
-                        if !is_leaf {
-                            return Err(access.to_page_exception());
-                        }
-                        Some((pte0, pte0_addr))
-                    };
 
-                    let (mut leaf_pte, leaf_pte_addr) = if let Some((pte0, addr)) = pte0_opt {
-                        (pte0, addr)
-                    } else {
-                        (pte1, pte1_addr)
-                    };
-                
-                    Self::access_check(&leaf_pte, access, mode)?;
-                    
-                    let leaf_pte_access = Access::new(leaf_pte_addr, access.kind);
-                    if leaf_pte.is_access_zero_and_set() {
-                        bus.write_u32(leaf_pte_access, leaf_pte.into())?;
-                    }
-                    if access.kind == AccessType::Store && leaf_pte.is_dirty_zero_and_set() {
-                        bus.write_u32(leaf_pte_access, leaf_pte.into())?;
-                    }
-                    
-                    let p_addr = if pte0_opt.is_some() {
-                        (leaf_pte.ppn() << 12) | vpn.offset() as u32
-                    } else {
-                        let ppn_0 = leaf_pte.ppn() & 0x3ff;
-                        if ppn_0 != 0 {
-                            return Err(access.to_page_exception());
-                        }
-                        let ppn_1 = leaf_pte.ppn() & 0x3ffc00;
-                        ppn_1 << 12 | (vpn.vpn_0() as u32) << 12 | vpn.offset() as u32
-                    };
-                    access.into_physical(p_addr)
-                } else {
-                    access.bypass()
+        if mode == PrivilegeMode::Machine {
+            return Ok(access.bypass());
+        }
+
+        let (asid, root_ppn) = match satp_opt {
+            Some((asid, ppn)) => (asid, ppn),
+            None => return Ok(access.bypass()),
+        };
+
+        let tlb_res = self.tlb.lookup(v_addr, asid, access.kind, mode);
+
+        match tlb_res {
+            TlbResult::Hit(is_mega, ppn) => {
+                self.hit_count += 1;
+                let p_addr = Self::get_physical(v_addr, ppn, is_mega);
+                return Ok(access.into_physical(p_addr));
+            },
+            TlbResult::PageFault => {
+                self.hit_count += 1;
+                return Err(access.into_page_exception());
+            },
+            TlbResult::UpdateAD => self.hit_count += 1,
+            TlbResult::Miss => self.miss_count += 1,
+        }
+
+        let vpn = Sv32Vpn::from(v_addr);
+
+        let (mut pte, pte_addr, is_mega) = {
+            let (pte1, addr1, is_leaf) = Self::pte_walk(
+                vpn.vpn_1(), root_ppn, &access, bus
+            )?;
+
+            if is_leaf {
+                (pte1, addr1, true)
+            } else {
+                let (pte0, addr0, is_leaf) = Self::pte_walk(
+                    vpn.vpn_0(), pte1.ppn(), &access, bus
+                )?;
+                if !is_leaf {
+                    return Err(access.into_page_exception());
                 }
+                (pte0, addr0, false)
             }
-        })
+        };
+
+        Self::access_check(&pte, &access, mode)?;
+
+        let mut update_pte = false;
+
+        if pte.is_access_zero_and_set() {
+            update_pte = true;
+        }
+        if access.kind == AccessType::Store && pte.is_dirty_zero_and_set() {
+            update_pte = true;
+        }
+        if update_pte {
+            let pte_access = Access::new(pte_addr, access.kind);
+            bus.write_u32(pte_access, pte.into())?;
+        }
+
+        if is_mega && (pte.ppn() & 0x3ff) != 0 {
+            return Err(access.into_page_exception());
+        }
+
+        self.tlb.fill(v_addr, pte, asid, is_mega);
+
+        let p_addr = Self::get_physical(v_addr, pte.ppn(), is_mega);
+
+        Ok(access.into_physical(p_addr))
     }
 
-    fn pte_walk(vpn: u32, ppn: u32, access: &Access, bus: &mut SystemBus) -> Result<(Sv32Pte, u32, bool), Exception> {
-        let pte_addr = (ppn << 12) + vpn * 4;
+    fn pte_walk(vpn: u16, ppn: u32, access: &Access<Virtual>, bus: &mut SystemBus) -> Result<(Sv32Pte, u32, bool), Exception> {
+        let pte_addr = (ppn << 12) + (vpn * 4) as u32;
 
         let pte_access = Access::new(pte_addr, AccessType::Load);
 
         let pte = Sv32Pte::from(bus.read_u32(pte_access)?);
 
-        Ok(if !pte.is_valid() || (!pte.can_read() && pte.can_write()) {
-            return  Err(access.to_page_exception())
-        } else if pte.is_leaf() {
-            (pte, pte_addr, true)
-        } else {
-            (pte, pte_addr, false)
-        })
+        if !pte.is_valid() || (!pte.can_read() && pte.can_write()) {
+            return  Err(access.into_page_exception())
+        } 
+
+        Ok((pte, pte_addr, pte.is_leaf()))
     }
 
-    fn access_check(pte: &Sv32Pte, access: Access, mode: PrivilegeMode) -> Result<(), Exception> {
+    fn access_check(pte: &Sv32Pte, access: &Access<Virtual>, mode: PrivilegeMode) -> Result<(), Exception> {
         let can_access = match access.kind {
             AccessType::Load  => pte.can_read(),
             AccessType::Store => pte.can_write(),
@@ -98,8 +127,18 @@ impl Mmu {
         if can_access && can_mode {
             Ok(())
         } else {
-            Err(access.to_page_exception())
+            Err(access.into_page_exception())
         }
+    }
+
+    fn get_physical(v_addr: u32, ppn: u32, is_mega: bool) -> u32 {
+        let level_size = if is_mega {
+                1 << 22
+            } else {
+                1 << 12
+            };
+        let offset_mask = level_size - 1;
+        (ppn << 12) | (v_addr & offset_mask)
     }
 }
 
@@ -136,21 +175,24 @@ mod tests {
 
     #[test]
     fn test_bypass_mode() {
+        let mut mmu = Mmu::default();
+
         let mut bus = SystemBus::default();
         let va = 0x8000_5555;
         let access = Access::new(va, AccessType::Load);
 
-        let res = Mmu::translate(access, PrivilegeMode::Machine, Some(0x80001), &mut bus);
+        let res = mmu.translate(access, PrivilegeMode::Machine, Some((0, 0x80001)), &mut bus);
         assert!(res.is_ok());
         assert_eq!(res.unwrap().addr, va, "M-Mode should bypass MMU");
 
-        let res = Mmu::translate(access, PrivilegeMode::Supervisor, None, &mut bus);
+        let res = mmu.translate(access, PrivilegeMode::Supervisor, None, &mut bus);
         assert!(res.is_ok());
         assert_eq!(res.unwrap().addr, va, "Bare mode should bypass MMU");
     }
 
     #[test]
     fn test_sv32_4k_page_translation_and_accessed_bit() {
+        let mut mmu = Mmu::default();
         let mut bus = SystemBus::default();
         
         // Root Page Table (L1): 0x8000_1000 (PPN: 0x80001)
@@ -175,7 +217,7 @@ mod tests {
         write_pte(&mut bus, leaf_pte_addr, leaf_pte_val);
 
         let access = Access::new(va, AccessType::Load);
-        let res = Mmu::translate(access, PrivilegeMode::Supervisor, Some(root_ppn), &mut bus);
+        let res = mmu.translate(access, PrivilegeMode::Supervisor, Some((0, root_ppn)), &mut bus);
 
         assert!(res.is_ok(), "Translation failed: {:?}", res.err());
         let pa = res.unwrap().addr;
@@ -187,6 +229,7 @@ mod tests {
 
     #[test]
     fn test_sv32_megapage_translation() {
+        let mut mmu = Mmu::default();
         let mut bus = SystemBus::default();
         let root_ppn = 0x80001;
         let target_megapage_ppn = 0x80400; 
@@ -200,7 +243,7 @@ mod tests {
         write_pte(&mut bus, root_pte_addr, root_pte_val);
 
         let access = Access::new(va, AccessType::Store);
-        let res = Mmu::translate(access, PrivilegeMode::Supervisor, Some(root_ppn), &mut bus);
+        let res = mmu.translate(access, PrivilegeMode::Supervisor, Some((0, root_ppn)), &mut bus);
 
         assert!(res.is_ok());
         let pa = res.unwrap().addr;
@@ -215,6 +258,7 @@ mod tests {
 
     #[test]
     fn test_page_fault_read_only() {
+        let mut mmu = Mmu::default();
         let mut bus = SystemBus::default();
         let root_ppn = 0x80001;
         let target_ppn = 0x80000; 
@@ -227,10 +271,10 @@ mod tests {
         write_pte(&mut bus, root_pte_addr, pte_val);
 
         let load_access = Access::new(va, AccessType::Load);
-        assert!(Mmu::translate(load_access, PrivilegeMode::Supervisor, Some(root_ppn), &mut bus).is_ok());
+        assert!(mmu.translate(load_access, PrivilegeMode::Supervisor, Some((0, root_ppn)), &mut bus).is_ok());
 
         let store_access = Access::new(va, AccessType::Store);
-        let res = Mmu::translate(store_access, PrivilegeMode::Supervisor, Some(root_ppn), &mut bus);
+        let res = mmu.translate(store_access, PrivilegeMode::Supervisor, Some((0, root_ppn)), &mut bus);
         
         match res {
             Err(Exception::StoreOrAmoPageFault(addr)) => assert_eq!(addr, va),
@@ -240,6 +284,7 @@ mod tests {
 
     #[test]
     fn test_page_fault_invalid() {
+        let mut mmu = Mmu::default();
         let mut bus = SystemBus::default();
         let root_ppn = 0x80001;
         let va = 0xDEAD_BEEF;
@@ -251,11 +296,47 @@ mod tests {
         bus.write_u32(access_init.into_physical(pte_addr), 0).expect("Init PT memory failed");
         
         let access = Access::new(va, AccessType::Load);
-        let res = Mmu::translate(access, PrivilegeMode::Supervisor, Some(root_ppn), &mut bus);
+        let res = mmu.translate(access, PrivilegeMode::Supervisor, Some((0, root_ppn)), &mut bus);
 
         match res {
             Err(Exception::LoadPageFault(addr)) => assert_eq!(addr, va),
             _ => panic!("Should throw LoadPageFault for invalid PTE, got {:?}", res),
         }
+    }
+
+    #[test]
+    fn test_tlb() {
+        let mut mmu = Mmu::default();
+        let mut bus = SystemBus::default();
+
+        let root_ppn = 0x80001;
+        let leaf_pt_ppn = 0x80002;
+        let target_ppn = 0x80003;
+        let va = 0x8000_0000;
+
+        let vpn1 = (va >> 22) & 0x3FF;
+        let vpn0 = (va >> 12) & 0x3FF;
+
+        let root_pte_addr = (root_ppn << 12) + vpn1 * 4;
+        write_pte(&mut bus, root_pte_addr, make_pte(leaf_pt_ppn, true, false, false, false, false, false, false));
+
+        let leaf_pte_addr = (leaf_pt_ppn << 12) + vpn0 * 4;
+        write_pte(&mut bus, leaf_pte_addr, make_pte(target_ppn, true, true, true, false, false, false, false));
+
+        let access = Access::new(va, AccessType::Load);
+        let res = mmu.translate(access, PrivilegeMode::Supervisor, Some((0, root_ppn)), &mut bus);
+        assert!(res.is_ok());
+        assert_eq!(mmu.hit_count, 0, "First access should be a miss");
+        assert_eq!(mmu.miss_count, 1, "First access should increment miss count");
+    
+        write_pte(&mut bus, leaf_pte_addr, 0);
+
+        let access2 = Access::new(va, AccessType::Load);
+        let res2 = mmu.translate(access2, PrivilegeMode::Supervisor, Some((0, root_ppn)), &mut bus);
+        
+        assert!(res2.is_ok(), "Should hit TLB and ignore invalid memory PTE");
+        assert_eq!(res2.unwrap().addr, target_ppn << 12);
+        assert_eq!(mmu.hit_count, 1, "Second access should be a hit");
+        assert_eq!(mmu.miss_count, 1, "Miss count should not increase");
     }
 }
