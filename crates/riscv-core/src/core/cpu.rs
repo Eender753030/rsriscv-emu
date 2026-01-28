@@ -16,6 +16,7 @@ pub struct Cpu {
     pub(crate) regs: RegisterFile,
     pub(crate) pc: PC,
     pub(crate) csrs: CsrFile,
+    pub(crate) mmu: Mmu,
     pub(crate) bus: SystemBus,
 }
 
@@ -89,13 +90,17 @@ impl Cpu {
     fn fetch(&mut self) -> Result<u32, Exception> {
         let va_access = Access::new(self.pc.get(), super::AccessType::Fetch);
 
-        let pa_access = Mmu::translate(va_access, self.mode, self.csrs.check_satp(), &mut self.bus)?;
-        
-        self.bus.read_u32(pa_access).or_else(|e| {
-            Err(match e {
+        let pa_access = self.mmu.translate(va_access, self.mode, self.csrs.check_satp() , &mut self.bus)?;
+
+        self.csrs.pmp_check(pa_access, 4, self.mode).map_err(|e| match e {
             Exception::InstructionAccessFault(_) => Exception::InstructionAccessFault(va_access.addr),
             _ => e
-        })})
+        })?;
+
+        self.bus.read_u32(pa_access).map_err(|e| match e {
+            Exception::InstructionAccessFault(_) => Exception::InstructionAccessFault(va_access.addr),
+            _ => e
+        })
     }
 
     fn decode(&self, bytes: u32) -> Result<Instruction, Exception> {
@@ -108,8 +113,7 @@ impl Cpu {
             Instruction::Base(op, data)  => if self.execute_rv32i(op, data)? {
                     return Ok(());
             },
-            Instruction::Privileged(op)  => {
-                self.execute_privileged(op);
+            Instruction::Privileged(op, data)  => if self.execute_privileged(op, data)? {
                 return Ok(())
             },
             Instruction::M(op, data)     => self.execute_m(op, data),
@@ -178,6 +182,8 @@ impl std::fmt::Debug for Cpu {
 
 #[cfg(test)]
 mod tests {
+    use riscv_decoder::decoder::decode;
+
     use super::*;
     use crate::constance::DRAM_BASE_ADDR;
     use crate::core::privilege::PrivilegeMode;
@@ -278,5 +284,46 @@ mod tests {
 
         let mepc = cpu.csrs.read(0x341, PrivilegeMode::Machine).unwrap();
         assert_eq!(mepc, DRAM_BASE_ADDR, "mepc wrong");
+    }
+
+    #[test]
+    fn test_sfence_vma() {
+        let mut cpu = Cpu::default();
+        
+        cpu.mode = PrivilegeMode::Supervisor;
+        
+        // sfence.vma x10, x11
+        let raw = 0x12a58073;
+
+        let rs1_idx = 10;
+        let rs2_idx = 11;
+        let vaddr_val = 0x8000_1000;
+        let asid_val = 0x1;
+        
+        cpu.regs.write(rs1_idx, vaddr_val);
+        cpu.regs.write(rs2_idx, asid_val);
+
+        let ins = decode(raw).unwrap();
+        
+        let res = if let Instruction::Privileged(op, data) = ins {
+            cpu.execute_privileged(op, data)
+        } else {
+            panic!("");
+        };
+
+        assert!(res.is_ok());
+        let next_pc_manual = res.unwrap();
+        assert_eq!(next_pc_manual, false);
+
+        cpu.mode = PrivilegeMode::User;
+        let res_err = if let Instruction::Privileged(op, data) = ins {
+            cpu.execute_privileged(op, data)
+        } else {
+            panic!("");
+        };
+        match res_err {
+            Err(Exception::IllegalInstruction(_)) => (),
+            _ => panic!(""),
+        }
     }
 }

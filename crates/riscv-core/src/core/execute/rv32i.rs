@@ -95,15 +95,15 @@ impl Cpu {
             Lhu => (false, 2),
             _   => return None,
         };
-        let satp_opt = self.csrs.check_satp();
-        let mode = self.mode;
-        let bus = &mut self.bus;
 
-        Some(
-            if is_signed {
-                Lsu::load_signed(bus, src, offset, byte_num, mode, satp_opt)
+        let mut lsu = Lsu::new(
+            &mut self.mmu, &mut self.bus, &self.csrs, self.mode
+        );
+ 
+        Some(if is_signed {
+                lsu.load_signed(src, offset, byte_num)
             } else {
-                Lsu::load(bus, src, offset, byte_num, mode, satp_opt)
+                lsu.load(src, offset, byte_num)
             }
         )
     }
@@ -115,13 +115,11 @@ impl Cpu {
             Sw => 4,
             _  => return None,
         };
-        let satp_opt = self.csrs.check_satp();
-        let mode = self.mode;
-        let bus = &mut self.bus;
+        let mut lsu = Lsu::new(
+            &mut self.mmu, &mut self.bus, &self.csrs, self.mode
+        );
 
-        Some(
-            Lsu::store(bus, des, src, offset, byte_num, mode, satp_opt)
-        )
+        Some(lsu.store(des, src, offset, byte_num))
     }
 
     fn branch(op: Rv32iOp, data1: u32, data2: u32) -> Option<bool> {

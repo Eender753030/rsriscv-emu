@@ -43,8 +43,12 @@ pub fn ins_to_string(ins: Instruction, addr: u32, sym_table: &HashMap<u32, Strin
                 format!("{:<7} x{}, x{}, x{}", op, data.rd, data.rs1, data.rs2)
             }
         },
-        Privileged(op) => {
-            format!("{:<7}", op)
+        Privileged(op, data) => {
+            if op.is_fence() {
+                format!("{:<12} x{}, x{}", op, data.rs1, data.rs2)
+            } else {
+                format!("{:<7}", op)
+            }
         }
         M(op, data) => {
             format!("{:<7} x{}, x{}, x{}", op, data.rd, data.rs1, data.rs2)

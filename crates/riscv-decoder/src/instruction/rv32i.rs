@@ -31,7 +31,7 @@ pub enum Rv32iOp {
 }
 
 impl Rv32iOp {
-    pub(crate) fn decode_itype(opcode: OpCode, funct3: u8, funct7: u8, funct12: u16) -> Option<Rv32iOp> {
+    pub(crate) fn decode_itype(opcode: OpCode, funct3: u8, funct7: u8) -> Option<Rv32iOp> {
         Some(match opcode {
             OpCode::ItypeAr => match funct3 {
                 0x0 => Addi,
@@ -63,14 +63,6 @@ impl Rv32iOp {
             OpCode::ItypeFence => match funct3 {
                 0x0 => Fence,
                 _   => return None,
-            },
-            OpCode::ItypeSystem => match funct3 {
-                0x0 => match funct12 {
-                    0x000 => Ecall,
-                    0x001 => Ebreak,
-                    _     => return None,
-                },
-                _ => return None,
             },
             _ => return None,
         })
@@ -129,6 +121,17 @@ impl Rv32iOp {
             OpCode::UtypeAuipc => Auipc,
             OpCode::UtypeLui   => Lui,
             _                  => return None,
+        })
+    }
+
+    pub(crate) fn decode_system(funct3: u8, funct12: u16) -> Option<Rv32iOp> {
+        Some(match funct3 {
+            0x0 => match funct12 {
+                0x000 => Ecall,
+                0x001 => Ebreak,
+                _     => return None,
+            },
+            _ => return None,
         })
     }
 

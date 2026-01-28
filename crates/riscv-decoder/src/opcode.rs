@@ -11,13 +11,13 @@ pub enum OpCode {
     ItypeLoad = 0x03,
     ItypeJump = 0x67,
     ItypeFence = 0x0f,
-    ItypeSystem = 0x73,
     Rtype = 0x33,
     Stype = 0x23,
     Btype = 0x63,
     Jtype = 0x6f,
     UtypeLui = 0x37,  
     UtypeAuipc = 0x17,
+    System = 0x73,
 }
 
 impl TryFrom<u8> for OpCode {
@@ -29,13 +29,13 @@ impl TryFrom<u8> for OpCode {
             0x03 => ItypeLoad,
             0x67 => ItypeJump,
             0x0f => ItypeFence,
-            0x73 => ItypeSystem,
             0x33 => Rtype,
             0x23 => Stype,
             0x63 => Btype,
             0x6f => Jtype,
             0x37 => UtypeLui,
-            0x17 => UtypeAuipc,       
+            0x17 => UtypeAuipc,     
+            0x73 => System,  
             _    => return Err(DecodeError::UnknownOpcode(value)),
         })
     }
@@ -55,13 +55,13 @@ impl std::fmt::Display for OpCode {
             ItypeLoad   => "I-type: load",
             ItypeJump   => "I-type: jump",
             ItypeFence  => "I-type: fence",
-            ItypeSystem => "I-type: system",
             Rtype       => "R-type",
             Stype       => "S-type",
             Btype       => "B-type",
             Jtype       => "J-type",
             UtypeLui    => "U-type: lui",
-            UtypeAuipc  => "U-type: auipc",        
+            UtypeAuipc  => "U-type: auipc",   
+            System      => "System",     
         };
         
         f.pad(&format!("{:#02x}({})", opcode, op_str))

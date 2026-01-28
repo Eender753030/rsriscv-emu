@@ -2,6 +2,11 @@ use crate::Exception;
 
 use CsrAddr::*;
 
+use super::PMPCFG_NUM;
+
+const PMPCFG_END: u16 = 0x3a0 + PMPCFG_NUM as u16;
+const PMPADDR_END: u16 = 0x3b0 + (PMPCFG_NUM * 4) as u16;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CsrAddr {
     Ustatus,
@@ -26,8 +31,8 @@ pub enum CsrAddr {
     Mcause,
     Mtval,
     Mip,
-    Pmpcfg0,
-    Pmpaddr0,
+    Pmpcfg(usize),
+    Pmpaddr(usize),
     Mhartid,
 }
 
@@ -57,8 +62,8 @@ impl TryFrom<u16> for CsrAddr {
             0x342 => Mcause,
             0x343 => Mtval,
             0x344 => Mip,
-            0x3a0 => Pmpcfg0,
-            0x3b0 => Pmpaddr0,
+            num @ 0x3a0..=PMPCFG_END => Pmpcfg((num - 0x3a0) as usize),
+            num @ 0x3b0..=PMPADDR_END => Pmpaddr((num - 0x3b0) as usize),
             0xf14 => Mhartid, 
 
             _     => return Err(Exception::IllegalInstruction(value as u32)),

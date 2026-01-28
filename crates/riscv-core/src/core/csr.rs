@@ -1,11 +1,18 @@
-mod mstatus;
-mod satp;
 mod addr;
+mod mstatus;
+mod pmpcfg;
+mod satp;
 
-use crate::{core::privilege::PrivilegeMode, exception::Exception};
-use mstatus::Mstatus;
-use satp::Satp;
+use crate::Exception;
+use crate::core::{Access, Physical};
+use crate::core::privilege::PrivilegeMode;
+
 use addr::CsrAddr;
+use mstatus::Mstatus;
+use pmpcfg::Pmpcfg;
+use satp::Satp;
+
+pub(super) const PMPCFG_NUM: usize = 4;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct CsrFile {
@@ -26,6 +33,9 @@ pub struct CsrFile {
     mcause: u32,
     mtval: u32,
     mip: u32,
+
+    pmpcfg: [Pmpcfg; PMPCFG_NUM],
+    pmpaddr: [u32; PMPCFG_NUM * 4],
 }
 
 const MODE_MASK: u16 = 3 << 8;
@@ -59,8 +69,9 @@ impl CsrFile {
                 CsrAddr::Mcause => self.mcause,
                 CsrAddr::Mtval => self.mtval,
                 CsrAddr::Mip => self.mip,
-                CsrAddr::Pmpcfg0 => 0,
-                CsrAddr::Pmpaddr0 => 0,
+
+                CsrAddr::Pmpcfg(num) => self.pmpcfg[num].into(),
+                CsrAddr::Pmpaddr(num) => self.pmpaddr[num],
                 CsrAddr::Mhartid => 0,
             })
         }
@@ -93,8 +104,9 @@ impl CsrFile {
                 CsrAddr::Mcause => self.mcause = data,
                 CsrAddr::Mtval => self.mtval = data,
                 CsrAddr::Mip => self.mip = data,
-                CsrAddr::Pmpcfg0 => {},
-                CsrAddr::Pmpaddr0 => {}, 
+
+                CsrAddr::Pmpcfg(num) => self.pmpcfg[num] = data.into(),
+                CsrAddr::Pmpaddr(num) => self.pmpaddr[num] = data, 
                 CsrAddr::Mhartid => return Err(Exception::IllegalInstruction(addr as u32)),
             };
             Ok(())
@@ -183,20 +195,82 @@ impl CsrFile {
         (mode, self.sepc)
     } 
 
-    pub fn reset(&mut self) {
-        *self = Self::default()
-    }
-
-    pub fn check_satp(&self) -> Option<u32> {
+    pub fn check_satp(&self) -> Option<(u16, u32)> {
         if self.satp.mode() > 0  {
-            Some(self.satp.ppn())
+            Some((self.satp.asid(), self.satp.ppn()))
         } else {
             None
         }
     }
 
+    pub fn pmp_check(&self, access: Access<Physical>, size: usize, mode: PrivilegeMode) -> Result<(),Exception> {
+        use pmpcfg::MatchingMode::*;
+        let mut is_match = None;
+        for i in 0..PMPCFG_NUM * 4 {
+            if match self.pmpcfg[i / 4][i % 4].mode() {
+                Off   => continue,
+                Tor   => self.top_of_range(i, access.addr, size),
+                Na4   => self.na4(i, access.addr, size),
+                Napot => self.napot(i, access.addr, size),
+            } {
+                is_match = Some(i);
+                break;
+            }
+        }
+        match is_match {
+            Some(idx) => {
+                let pmpcfg = &self.pmpcfg[idx / 4][idx % 4];
+                if pmpcfg.mode_check(mode) {
+                    return Ok(());
+                }
+                if !pmpcfg.access_check(access) {
+                    return Err(access.into_access_exception());
+                }
+                Ok(())
+            },
+            None => match mode {
+                PrivilegeMode::Machine => Ok(()),
+                _                      => Err(access.into_access_exception()),
+            }
+        }
+    }
+
+    fn top_of_range(&self, idx: usize, addr: u32, size: usize) -> bool {
+        let lower = match idx.checked_sub(1) {
+            Some(i) => self.pmpaddr[i] << 2,
+            None      => 0,
+        };
+        let upper = self.pmpaddr[idx] << 2;
+
+        lower <= addr && addr + (size as u32) < upper
+    }
+
+    fn na4(&self, idx: usize, addr: u32, size: usize) -> bool {
+        let base = self.pmpaddr[idx] << 2;
+
+        base <= addr && addr + (size as u32) < base + 4
+    }
+
+    fn napot(&self, idx: usize, addr: u32, size: usize) -> bool {
+        let mask_bit = self.pmpaddr[idx].trailing_ones();
+        let chunck_size = 1 << (3 + mask_bit);
+        let base = (self.pmpaddr[idx] & !((1 << mask_bit) - 1)) << 2;
+
+        base <= addr && (addr as usize) + size < (base as usize)  + chunck_size
+    }
+
+    pub fn reset(&mut self) {
+        *self = Self::default()
+    }
+
     pub fn inspect(&self) -> Vec<(String, u32)> {
-        vec![
+        let pmp_list = self.pmpcfg.iter().enumerate()
+            .map(|(i, cfg)| (format!("pmpcfg{}", i), (*cfg).into()))
+            .chain(self.pmpaddr.iter().enumerate()
+                .map(|(i, addr)| (format!("pmpaddr{}", i), *addr))
+            );
+
+        let mut csr_list: Vec<(String, u32)> = vec![
             ("ustatus".to_string(), 0),
             ("sstatus".to_string(), self.mstatus.read_s()),
             ("sie".to_string(), self.mie & self.mideleg),
@@ -216,10 +290,11 @@ impl CsrFile {
             ("mepc".to_string(), self.mepc),
             ("mcause".to_string(), self.mcause),
             ("mip".to_string(), self.mip),
-            ("pmpcfg0".to_string(), 0),
-            ("pmpaddr0".to_string(), 0),
-            ("mhartid".to_string(), 0),
-        ]
+        ];
+        csr_list.extend(pmp_list);
+        csr_list.push(("mhartid".to_string(), 0));
+
+        csr_list
     }
 }
 
@@ -329,4 +404,134 @@ mod tests {
 
         assert_eq!(csr.mcause, 0); 
     }
+
+    mod pmp {
+        use crate::core::{Access, AccessType, CsrFile};
+        use crate::core::privilege::PrivilegeMode;
+        use crate::exception::Exception;
+
+        fn set_pmp_entry(csr: &mut CsrFile, idx: usize, cfg: u8, addr: u32) {
+            let shift = (idx % 4) * 8;
+            
+            let mut curr_cfg = csr.read(0x3a0, PrivilegeMode::Machine).unwrap();
+            curr_cfg &= !(0xff << shift);
+
+            curr_cfg |= (cfg as u32) << shift;
+            csr.write(0x3a0, curr_cfg, PrivilegeMode::Machine).unwrap();
+
+            let csr_addr = 0x3b0 + idx as u16;
+            csr.write(csr_addr, addr, PrivilegeMode::Machine).unwrap();
+        }
+
+        #[test]
+        fn test_default() {
+            let csr = CsrFile::default();
+            let access = Access::new(0x8000_0000, AccessType::Load);
+            let mode = PrivilegeMode::Machine;
+
+            assert!(csr.pmp_check(access, 4, mode).is_ok());
+
+            let mode = PrivilegeMode::Supervisor;
+            assert_eq!(csr.pmp_check(access, 4, mode),
+                Err(Exception::LoadAccessFault(0x8000_0000)));
+        }
+
+        #[test]
+        fn test_tor() {
+            let mut csr = CsrFile::default();
+            let addr = 0x8000_0000;
+
+            let cfg = (1 << 3) | (1 << 0); // A = 01, R = 1
+            set_pmp_entry(&mut csr, 0, cfg, addr + 1000 >> 2);
+
+            let mut access = Access::new(addr, AccessType::Load);
+            let mode = PrivilegeMode::Supervisor;
+    
+            assert!(csr.pmp_check(access, 4, mode).is_ok());
+
+            access.kind = AccessType::Store;
+            assert_eq!(csr.pmp_check(access, 4, mode),
+                Err(Exception::StoreAccessFault(addr)));
+
+            access.kind = AccessType::Fetch;
+            assert_eq!(csr.pmp_check(access, 4, mode), 
+                Err(Exception::InstructionAccessFault(addr)));
+        }
+
+        #[test]
+        fn test_na4() {
+            let mut csr = CsrFile::default();
+            let addr = 0x8000_0000;
+
+            let cfg = (1 << 4) | (3 << 1); // A = 10, W = 1, X = 1
+            set_pmp_entry(&mut csr, 0, cfg, addr >> 2);
+
+            let mut access = Access::new(addr, AccessType::Store);
+            let mode = PrivilegeMode::Supervisor;
+    
+            assert!(csr.pmp_check(access, 2, mode).is_ok());
+
+            access.kind = AccessType::Fetch;
+            assert!(csr.pmp_check(access, 2, mode).is_ok());
+
+            access.kind = AccessType::Load;
+            assert_eq!(csr.pmp_check(access, 2, mode),
+                Err(Exception::LoadAccessFault(addr)));
+        }
+
+        #[test]
+        fn test_napot() {
+            let mut csr = CsrFile::default();
+            let addr = 0x8000_0000;
+
+            let cfg = (3 << 3) | (3 << 0); // A = 11, R = 1, W = 1
+            let pmpaddr = (0x8000_0000 >> 2) | 0x3FF;
+            set_pmp_entry(&mut csr, 0, cfg, pmpaddr);
+
+            let mut access = Access::new(addr, AccessType::Load);
+            let mode = PrivilegeMode::Supervisor;
+    
+            assert!(csr.pmp_check(access, 2, mode).is_ok());
+
+            access.kind = AccessType::Store;
+            assert!(csr.pmp_check(access, 2, mode).is_ok());
+
+            access.kind = AccessType::Fetch;
+            assert_eq!(csr.pmp_check(access, 4, mode), 
+                Err(Exception::InstructionAccessFault(addr)));
+        }
+
+        #[test]
+        fn test_priority() {
+            let mut csr = CsrFile::default();
+            let mode = PrivilegeMode::Supervisor;
+            // pmp0: A = 01
+            set_pmp_entry(&mut csr, 0, 1 << 3, 0x8000_1000 >> 2);
+            // pmp1: A = 01, R = 1, W = 1, X = 1
+            set_pmp_entry(&mut csr, 1, (1 << 3) | (7 << 0), 0x8000_2000 >> 2);
+
+            let access0 = Access::new(0x8000_0050, AccessType::Load);
+            assert!(csr.pmp_check(access0, 4, mode).is_err());
+            let access1 = Access::new(0x8000_1050, AccessType::Load); 
+            assert!(csr.pmp_check(access1, 4, mode).is_ok());            
+        }
+
+        #[test] 
+        fn test_lock() {
+            let mut csr = CsrFile::default();
+
+            let cfg_unlocked = (1 << 3) | (1 << 0) ; // A = 01, R = 1 
+            set_pmp_entry(&mut csr, 0, cfg_unlocked, 0x8000_1000 >> 2);
+
+            let access = Access::new(0x8000_0050, AccessType::Store);
+            assert!(csr.pmp_check(access, 4, PrivilegeMode::Machine).is_ok());
+
+            let cfg_locked = (1 << 7) | (1 << 3) | (1 << 0) ; // L = 1, A = 01, R = 1 
+            set_pmp_entry(&mut csr, 0, cfg_locked, 0x8000_1000 >> 2);
+
+            assert_eq!(csr.pmp_check(access, 4, PrivilegeMode::Machine), 
+                Err(Exception::StoreAccessFault(0x8000_0050)));
+        }
+    }
+    
 }

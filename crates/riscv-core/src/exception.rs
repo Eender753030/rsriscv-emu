@@ -1,5 +1,10 @@
 use Exception::*;
 
+pub enum Result<T> {
+    Ok(T),
+    Err(Exception),
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Exception {
     InstructionAddressMisaligned,

@@ -12,7 +12,7 @@ enum MappedDevice {
     Ram,
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct SystemBus {
     uart: Uart,
     ram: Memory,
@@ -25,7 +25,7 @@ pub const DRAM_BASE_ADDR: u32 = 0x8000_0000;
 impl SystemBus {
     fn mapping(&self, access: &mut Access<Physical>) -> Result<MappedDevice, Exception> {
         let addr = access.addr;
-         Ok(match addr {
+        Ok(match addr {
             UART_BASE..=UART_END => {
                access.addr = addr - UART_BASE;
                Uart
@@ -33,13 +33,13 @@ impl SystemBus {
             DRAM_BASE_ADDR.. => {
                 let ram_addr = addr - DRAM_BASE_ADDR;
                 if ram_addr as usize >= self.ram.size {
-                    return Err(access.to_access_exception())
+                    return Err(access.into_access_exception())
                 } else {
                     access.addr = ram_addr;
                     Ram
                 }
             },
-            _ => return Err(access.to_access_exception()),
+            _ => return Err(access.into_access_exception()),
         })
     }
 

@@ -23,7 +23,7 @@ pub struct InstructionData {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Instruction {
     Base(Rv32iOp, InstructionData),
-    Privileged(PrivilegeOp),
+    Privileged(PrivilegeOp, InstructionData),
     M(MOp, InstructionData),
     Ziscr(ZicsrOp, InstructionData),
     Zifencei(ZifenceiOp, InstructionData), 
