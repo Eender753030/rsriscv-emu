@@ -1,11 +1,13 @@
 //! Definition of enum corresponding to opcode
 mod rv32i;
+#[cfg(feature = "m")]
 mod m;
 mod zicsr;
 mod zifencei;
 mod privileged;
 
 pub use rv32i::Rv32iOp;
+#[cfg(feature = "m")]
 pub use m::MOp;
 pub use zicsr::ZicsrOp;
 pub use zifencei::ZifenceiOp;
@@ -24,6 +26,7 @@ pub struct InstructionData {
 pub enum Instruction {
     Base(Rv32iOp, InstructionData),
     Privileged(PrivilegeOp, InstructionData),
+    #[cfg(feature = "m")]
     M(MOp, InstructionData),
     Ziscr(ZicsrOp, InstructionData),
     Zifencei(ZifenceiOp, InstructionData), 

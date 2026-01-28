@@ -1,6 +1,8 @@
 use riscv_decoder::DecodeError;
 use riscv_decoder::decoder::decode;
-use riscv_decoder::instruction::{Instruction, InstructionData, MOp, Rv32iOp};
+use riscv_decoder::instruction::{Instruction, InstructionData, Rv32iOp};
+#[cfg(feature = "m")]
+use riscv_decoder::instruction::MOp;
 
 fn build_base_data(op: Rv32iOp, rd: u8, rs1: u8, rs2: u8, imm: i32) -> Instruction {
     let data = InstructionData { rd, rs1, rs2, imm };
@@ -188,12 +190,14 @@ fn  test_utype() {
     }
 }
 
+#[cfg(feature = "m")]
 fn build_m_data(op: MOp, rd: u8, rs1: u8, rs2: u8, imm: i32) -> Instruction {
     let data = InstructionData { rd, rs1, rs2, imm };
     Instruction::M(op, data)
 }
 
 #[test]
+#[cfg(feature = "m")]
 fn  test_m() {
     // mulhsu x17, x16, x15
     let ins1 = 0x02f828b3;

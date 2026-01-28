@@ -46,26 +46,31 @@ impl Alu {
         (data < cmp_data).into()
     }
 
+    #[cfg(feature = "m")]
     pub fn mul(data1: u32, data2: u32) -> u32 {
         (data1 as i32 as i64)
             .wrapping_mul(data2 as i32 as i64) as u32
     }
 
+    #[cfg(feature = "m")]
     pub fn mulh(data1: u32, data2: u32) -> u32 {
         ((data1 as i32 as i64)
             .wrapping_mul(data2 as i32 as i64) >> 32) as u32
     }
 
+    #[cfg(feature = "m")]
     pub fn mulh_unsigned(data1: u32, data2: u32) -> u32 {
         ((data1 as u64)
             .wrapping_mul(data2 as u64) >> 32) as u32
     }
     
+    #[cfg(feature = "m")]
     pub fn mulh_signed_unsigned(data1: u32, data2: u32) -> u32 {
         ((data1 as i32 as i64)
             .wrapping_mul(data2 as i64) >> 32) as u32
     }
     
+    #[cfg(feature = "m")]
     pub fn div(data1: u32, data2: u32) -> u32 {
         if data2 == 0 {
             u32::MAX
@@ -75,6 +80,7 @@ impl Alu {
         }
     }
 
+    #[cfg(feature = "m")]
     pub fn div_unsigned(data1: u32, data2: u32) -> u32 {
         if data2 == 0 {
             u32::MAX
@@ -83,6 +89,7 @@ impl Alu {
         }
     }
 
+    #[cfg(feature = "m")]
     pub fn rem(data1: u32, data2: u32) -> u32 {
         if data2 == 0 {
             data1
@@ -92,6 +99,7 @@ impl Alu {
         }
     }
 
+    #[cfg(feature = "m")]
     pub fn rem_unsigned(data1: u32, data2: u32) -> u32 {
         if data2 == 0 {
             data1
@@ -118,6 +126,15 @@ mod tests {
         assert_eq!(Alu::xor(0b1100, 0b1010), 0b0110);
     }
 
+    #[test]
+    fn test_comparisons() {
+        // Signed
+        assert_eq!(Alu::set_less_than(-1, 1), 1);
+        
+        // Unsigned
+        assert_eq!(Alu::set_less_than_unsigned(-1_i32 as u32, 1), 0);
+    }
+    
     #[test] 
     fn test_shifts() {
         // 1 << 33 should be 1 << 1 = 2
@@ -131,6 +148,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "m")]
     fn test_multiplication() {
         // Simple Mul
         assert_eq!(Alu::mul(10, 20), 200);
@@ -146,6 +164,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "m")]
     fn test_division_edge_cases() {
         // Division by Zero
         // RISC-V spec: div by 0 returns -1
@@ -163,14 +182,5 @@ mod tests {
         
         // Remainder should be 0
         assert_eq!(Alu::rem(int_min, -1_i32 as u32), 0);
-    }
-
-    #[test]
-    fn test_comparisons() {
-        // Signed
-        assert_eq!(Alu::set_less_than(-1, 1), 1);
-        
-        // Unsigned
-        assert_eq!(Alu::set_less_than_unsigned(-1_i32 as u32, 1), 0);
     }
 }

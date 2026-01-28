@@ -4,6 +4,11 @@ version.workspace = true
 authors.workspace = true
 edition.workspace = true
 
+[features]
+default = []
+
+m = ["riscv-decoder/m"]
+
 [dependencies]
 riscv-decoder = {workspace = true}
 riscv-loader = {workspace = true}

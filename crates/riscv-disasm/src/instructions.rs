@@ -50,6 +50,7 @@ pub fn ins_to_string(ins: Instruction, addr: u32, sym_table: &HashMap<u32, Strin
                 format!("{:<7}", op)
             }
         }
+        #[cfg(feature = "m")]
         M(op, data) => {
             format!("{:<7} x{}, x{}, x{}", op, data.rd, data.rs1, data.rs2)
         },

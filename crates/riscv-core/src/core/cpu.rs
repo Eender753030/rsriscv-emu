@@ -117,6 +117,7 @@ impl Cpu {
             Instruction::Privileged(op, data)  => if self.execute_privileged(op, data)? {
                 return Ok(())
             },
+            #[cfg(feature = "m")]
             Instruction::M(op, data)     => self.execute_m(op, data),
             Instruction::Ziscr(op, data) => self.execute_zicsr(op, data)?,
             Instruction::Zifencei(_, _)  => {},          

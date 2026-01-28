@@ -31,33 +31,43 @@ pub fn decode(raw: u32) -> Result<Instruction, DecodeError> {
         itype @ (OpCode::ItypeAr | OpCode::ItypeLoad | OpCode::ItypeJump | OpCode::ItypeFence) => {
             let imm = raw.get_bits_signed(20, 12);
             
-            Ok(if let Some(op) = Rv32iOp::decode_itype(itype, funct3, funct7) {
-                Base(op, InstructionData { rd, rs1, rs2, imm })
-            } else if itype == OpCode::ItypeFence && let Some(op) =  ZifenceiOp::decode(funct3) {
-                Zifencei(op, InstructionData { rd, rs1, rs2, imm })
-            } else {
-                return Err(DecodeError::UnknownInstruction(itype, raw));
-            })
+            if let Some(op) = Rv32iOp::decode_itype(itype, funct3, funct7) {
+                let res = Base(op, InstructionData { rd, rs1, rs2, imm });
+                return Ok(res);
+            } 
+            
+            if itype == OpCode::ItypeFence && let Some(op) =  ZifenceiOp::decode(funct3) {
+                let res = Zifencei(op, InstructionData { rd, rs1, rs2, imm });
+                return Ok(res);
+            } 
+                
+            return Err(DecodeError::UnknownInstruction(itype, raw));
         },
         // funct7 [6:0] | rs2 [4:0] | rs1 [4:0] | funct3 [2:0]  | rd [4:0] | opcode [6:0]
         rtype @ OpCode::Rtype => {
-            Ok(if let Some(op) = Rv32iOp::decode_rtype(funct3, funct7) {
-                Base(op, InstructionData { rd, rs1, rs2, imm: 0 })
-            } else if let Some(op) = MOp::decode(funct3, funct7) {
-                M(op, InstructionData { rd, rs1, rs2, imm: 0 })
-            } else {
-                return  Err(DecodeError::UnknownInstruction(rtype, raw))
-            })
+            if let Some(op) = Rv32iOp::decode_rtype(funct3, funct7) {
+                let res = Base(op, InstructionData { rd, rs1, rs2, imm: 0 });
+                return Ok(res);
+            } 
+            
+            #[cfg(feature = "m")]
+            if let Some(op) = MOp::decode(funct3, funct7) {
+                let res = M(op, InstructionData { rd, rs1, rs2, imm: 0 });
+                return Ok(res);
+            } 
+
+            return Err(DecodeError::UnknownInstruction(rtype, raw))
         },
         // imm [11:5] | rs2 [4:0] | rs1 [4:0] | funct3 [2:0] | imm [4:0] | opcode [6:0]
         stype @ OpCode::Stype => {
             let imm = (raw.get_bits_signed(25, 7) << 5) | raw.get_bits(7, 5) as i32;
             
             if let Some(op) = Rv32iOp::decode_stype(funct3) {
-                Ok(Base(op, InstructionData { rd, rs1, rs2, imm }))
-            } else {
-                Err(DecodeError::UnknownInstruction(stype, raw))
-            }
+                let res = Ok(Base(op, InstructionData { rd, rs1, rs2, imm }));
+                return res;
+            } 
+            
+            Err(DecodeError::UnknownInstruction(stype, raw)) 
         },
         // imm[12|10:5] | rs2 [4:0] | rs1 [4:0] | funct3 [2:0] | imm[4:1|11] | opcode [6:0]
         btype @ OpCode::Btype => {
@@ -67,10 +77,11 @@ pub fn decode(raw: u32) -> Result<Instruction, DecodeError> {
                 | (raw.get_bits(8, 4) << 1) as i32;
             
             if let Some(op) = Rv32iOp::decode_btype(funct3) {
-                Ok(Base(op, InstructionData { rd, rs1, rs2, imm }))
-            } else {
-                Err(DecodeError::UnknownInstruction(btype, raw))
-            }
+                let res = Base(op, InstructionData { rd, rs1, rs2, imm });
+                return Ok(res);
+            } 
+
+            Err(DecodeError::UnknownInstruction(btype, raw))
         },
         // imm[20|10:1|11|19:12] | rd[4:0] | opcode[6:0]
         jtype @ OpCode::Jtype => {
@@ -80,33 +91,42 @@ pub fn decode(raw: u32) -> Result<Instruction, DecodeError> {
                 | (raw.get_bits(21, 10) << 1) as i32;
             
             if let Some(op) = Rv32iOp::decode_jtype() {
-                Ok(Base(op, InstructionData { rd, rs1, rs2, imm }))
-            } else {
-                Err(DecodeError::UnknownInstruction(jtype, raw))
-            }
+                let res = Base(op, InstructionData { rd, rs1, rs2, imm });
+                return Ok(res);
+            } 
+
+            Err(DecodeError::UnknownInstruction(jtype, raw))
         },
         // imm[31:12] | rd[4:0] | opcode[6:0]
         utype @ (OpCode::UtypeAuipc | OpCode::UtypeLui) => {
             let imm = raw.get_bits_signed(12, 20) << 12;
 
             if let Some(op) = Rv32iOp::decode_utype(utype) {
-                Ok(Base(op, InstructionData { rd, rs1, rs2, imm }))
-            } else {
-                Err(DecodeError::UnknownInstruction(utype, raw))
-            }
+                let res = Base(op, InstructionData { rd, rs1, rs2, imm });
+                return Ok(res);
+            } 
+
+            Err(DecodeError::UnknownInstruction(utype, raw))  
         },
         system @ OpCode::System => {
             let imm = raw.get_bits(20, 12) as i32;
 
-            Ok(if let Some(op) = Rv32iOp::decode_system(funct3, imm as u16) {
-                Base(op, InstructionData { rd, rs1, rs2, imm })
-            } else if let Some(op) = ZicsrOp::decode(funct3) {
-                Ziscr(op, InstructionData { rd, rs1, rs2, imm })
-            } else if let Some(op) =  PrivilegeOp::decode(raw, funct3, funct7, rd) {
-                Privileged(op, InstructionData { rd, rs1, rs2, imm: 0 })
-            } else {
-                return Err(DecodeError::UnknownInstruction(system, raw));
-            }) 
+            if let Some(op) = Rv32iOp::decode_system(funct3, imm as u16) {
+                let res = Base(op, InstructionData { rd, rs1, rs2, imm });
+                return Ok(res);
+            } 
+            
+            if let Some(op) = ZicsrOp::decode(funct3) {
+                let res = Ziscr(op, InstructionData { rd, rs1, rs2, imm });
+                return Ok(res);
+            } 
+            
+            if let Some(op) =  PrivilegeOp::decode(raw, funct3, funct7, rd) {
+                let res = Privileged(op, InstructionData { rd, rs1, rs2, imm: 0 });
+                return Ok(res);
+            } 
+            
+            return Err(DecodeError::UnknownInstruction(system, raw)); 
         }
     }
 }
