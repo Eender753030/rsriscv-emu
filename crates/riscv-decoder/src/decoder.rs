@@ -36,6 +36,7 @@ pub fn decode(raw: u32) -> Result<Instruction, DecodeError> {
                 return Ok(res);
             } 
             
+            #[cfg(feature = "zifencei")]
             if itype == OpCode::ItypeFence && let Some(op) =  ZifenceiOp::decode(funct3) {
                 let res = Zifencei(op, InstructionData { rd, rs1, rs2, imm });
                 return Ok(res);

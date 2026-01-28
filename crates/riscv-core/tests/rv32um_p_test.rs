@@ -1,3 +1,5 @@
+#![cfg(feature = "m")]
+
 mod common;
 
 use std::path::Path;

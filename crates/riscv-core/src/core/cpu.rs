@@ -119,6 +119,7 @@ impl Cpu {
             #[cfg(feature = "m")]
             Instruction::M(op, data)     => self.execute_m(op, data),
             Instruction::Ziscr(op, data) => self.execute_zicsr(op, data)?,
+            #[cfg(feature = "zifencei")]
             Instruction::Zifencei(_, _)  => {},          
         }
         self.pc.step();

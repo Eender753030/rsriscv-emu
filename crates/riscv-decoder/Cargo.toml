@@ -8,6 +8,7 @@ edition.workspace = true
 default = []
 
 m = []
+zifencei = []
 
 [dependencies]
 thiserror = "2"

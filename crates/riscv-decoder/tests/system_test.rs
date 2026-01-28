@@ -1,6 +1,8 @@
 use riscv_decoder::decoder::decode;
 use riscv_decoder::instruction::{Instruction, InstructionData};
-use riscv_decoder::instruction::{PrivilegeOp, ZicsrOp, ZifenceiOp};
+use riscv_decoder::instruction::{PrivilegeOp, ZicsrOp}; 
+#[cfg(feature = "zifencei")]
+use riscv_decoder::instruction::ZifenceiOp;
 
 fn build_zicsr_data(op: ZicsrOp, rd: u8, rs1: u8, rs2: u8, imm: i32) -> Instruction {
     let data = InstructionData { rd, rs1, rs2, imm };
@@ -35,6 +37,7 @@ fn  test_zicsr() {
 }
 
 #[test]
+#[cfg(feature = "zifencei")]
 fn  test_zifencei() {
     // fence.i
     let ins = 0x0000100f;

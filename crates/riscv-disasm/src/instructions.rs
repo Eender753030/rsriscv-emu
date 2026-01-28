@@ -61,6 +61,7 @@ pub fn ins_to_string(ins: Instruction, addr: u32, sym_table: &HashMap<u32, Strin
 
             format!("{:<7} x{}, {}, x{}", op, data.rd, csr_str, data.rs1)       
         },
+        #[cfg(feature = "zifencei")]
         Zifencei(op, _)=> {
             format!("{:<7}", op)
         },

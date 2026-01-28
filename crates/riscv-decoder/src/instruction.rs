@@ -3,6 +3,7 @@ mod rv32i;
 #[cfg(feature = "m")]
 mod m;
 mod zicsr;
+#[cfg(feature = "zifencei")]
 mod zifencei;
 mod privileged;
 
@@ -10,6 +11,7 @@ pub use rv32i::Rv32iOp;
 #[cfg(feature = "m")]
 pub use m::MOp;
 pub use zicsr::ZicsrOp;
+#[cfg(feature = "zifencei")]
 pub use zifencei::ZifenceiOp;
 pub use privileged::PrivilegeOp;
 
@@ -29,5 +31,6 @@ pub enum Instruction {
     #[cfg(feature = "m")]
     M(MOp, InstructionData),
     Ziscr(ZicsrOp, InstructionData),
+    #[cfg(feature = "zifencei")]
     Zifencei(ZifenceiOp, InstructionData), 
 }
