@@ -55,7 +55,7 @@ impl Cpu {
     fn alu_imm(op: Rv32iOp, data: u32, imm: i32, pc: u32) -> Option<u32> {
         Some(match op {
             Addi  => Alu::add_signed(data, imm),
-            Slli  => Alu::shl_logic(data, data),
+            Slli  => Alu::shl_logic(data, imm as u32),
             Slti  => Alu::set_less_than(data as i32, imm),
             Sltiu => Alu::set_less_than_unsigned(data, imm as u32),
             Xori  => Alu::xor(data, imm as u32),
@@ -125,7 +125,8 @@ impl Cpu {
             #[cfg(feature = "zicsr")] self.mode
         );
 
-        Some(lsu.store(des, src, offset, byte_num))
+        Some(lsu.store(des, src, offset, byte_num, 
+            #[cfg(feature = "a")] &mut self.reservation))
     }
 
     fn branch(op: Rv32iOp, data1: u32, data2: u32) -> Option<bool> {
