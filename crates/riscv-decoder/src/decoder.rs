@@ -109,6 +109,19 @@ pub fn decode(raw: u32) -> Result<Instruction, DecodeError> {
 
             Err(DecodeError::UnknownInstruction(utype, raw))  
         },
+        #[cfg(feature = "a")]
+        atomic @ OpCode::Amo => {
+            let funct5 = raw.get_bits(27, 5) as u8;
+
+            if let Some(op) = AOp::decode(funct5, funct3, rs2) {
+                let rl = raw.get_bits(25, 1) as u8;
+                let aq = raw.get_bits(26, 1) as u8;
+                let res = A(op, AmoInsData { rd, rs1, rs2, rl, aq });
+                return Ok(res);
+            }
+
+            Err(DecodeError::UnknownInstruction(atomic, raw))
+        },
         system @ OpCode::System => {
             let imm = raw.get_bits(20, 12) as i32;
 

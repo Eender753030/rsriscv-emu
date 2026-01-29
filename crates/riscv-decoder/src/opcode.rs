@@ -18,6 +18,8 @@ pub enum OpCode {
     UtypeLui = 0x37,  
     UtypeAuipc = 0x17,
     System = 0x73,
+#[cfg(feature = "a")]
+    Amo = 0x2f, // Atomic Memory Operation
 }
 
 impl TryFrom<u8> for OpCode {
@@ -36,6 +38,8 @@ impl TryFrom<u8> for OpCode {
             0x37 => UtypeLui,
             0x17 => UtypeAuipc,     
             0x73 => System,  
+            #[cfg(feature = "a")]
+            0x2f => Amo, 
             _    => return Err(DecodeError::UnknownOpcode(value)),
         })
     }
@@ -62,6 +66,8 @@ impl std::fmt::Display for OpCode {
             UtypeLui    => "U-type: lui",
             UtypeAuipc  => "U-type: auipc",   
             System      => "System",     
+            #[cfg(feature = "a")]
+            Amo         => "AMO"
         };
         
         f.pad(&format!("{:#02x}({})", opcode, op_str))
