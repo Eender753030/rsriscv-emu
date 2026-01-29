@@ -55,6 +55,8 @@ impl PmpEntry {
             AccessType::Load  => self.r() > 0,
             AccessType::Store => self.w() > 0,
             AccessType::Fetch => self.x() > 0,
+            #[cfg(feature = "a")]
+            AccessType::Amo   =>  self.r() > 0 && self.w() > 0,
         }
     }
 }

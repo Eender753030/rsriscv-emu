@@ -36,7 +36,7 @@ impl Mmu {
             None => return Ok(access.bypass()),
         };
 
-        let tlb_res = self.tlb.lookup(v_addr, asid, access.kind, mode);
+        let tlb_res = self.tlb.lookup(csrs, v_addr, asid, access.kind, mode);
 
         match tlb_res {
             TlbResult::Hit(is_mega, ppn) => {
@@ -117,6 +117,8 @@ impl Mmu {
             AccessType::Load  => pte.can_read() || (pte.can_execute() && csrs.check_mxr()),
             AccessType::Store => pte.can_write(),
             AccessType::Fetch => pte.can_execute(),
+            #[cfg(feature = "a")]
+            AccessType::Amo => pte.can_read() && pte.can_write(),
         };
         
         let can_mode = 

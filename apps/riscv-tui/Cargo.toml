@@ -8,12 +8,13 @@ edition.workspace = true
 default = ["full"]
 
 m = ["riscv-core/m", "riscv-disasm/m"]
-zicsr = ["riscv-core/zicsr", "riscv-disasm/zicsr"]
+a = ["riscv-core/a", "riscv-disasm/a"]
+zicsr = ["riscv-core/zicsr", "riscv-disasm/zicsr", "zifencei"]
 zifencei = ["riscv-core/zifencei", "riscv-disasm/zifencei"]
 
 s = ["riscv-core/s", "riscv-disasm/s"]
 
-full = ["s", "m", "zicsr", "zifencei"]
+full = ["s", "m", "a", "zicsr", "zifencei"]
 
 [dependencies]
 riscv-core = {workspace = true}

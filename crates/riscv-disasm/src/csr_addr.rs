@@ -26,7 +26,8 @@ pub enum CsrAddr {
     Mip,
     Pmpcfg0,
     Pmpaddr0,
-    Mnscratch,
+
+    Mnstatus,
     Mhartid,
 }
 
@@ -58,7 +59,7 @@ impl std::fmt::Display for CsrAddr {
                 Mip       => "mip",
                 Pmpcfg0   => "pmpcfg0",
                 Pmpaddr0  => "pmpaddr0",
-                Mnscratch => "mnscratch",
+                Mnstatus  => "mnstatus",
                 Mhartid   => "mhartid",
             }
         )
@@ -93,7 +94,8 @@ impl TryFrom<u32> for CsrAddr {
             0x344 => Mip,
             0x3a0 => Pmpcfg0,
             0x3b0 => Pmpaddr0,
-            0x740 => Mnscratch,
+
+            0x744 => Mnstatus,
             0xf14 => Mhartid,   
             _     => return Err(value),
         })

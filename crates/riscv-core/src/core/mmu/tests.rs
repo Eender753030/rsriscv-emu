@@ -220,7 +220,7 @@ fn test_tlb() {
 #[test]
 fn test_flush_tlb() {
     let mut mmu = Mmu::default();
-
+    let csrs = CsrFile::default();
     // 1. VPN=0x10, ASID=1, Global=0
     // 2. VPN=0x20, ASID=1, Global=1
     // 3. VPN=0x10, ASID=2, Global=0 (Same VPN as A)
@@ -243,15 +243,15 @@ fn test_flush_tlb() {
     mmu.flush_tlb(0x10 << 12, 1);
 
     // Check 1: lookup should Miss
-    let res1 = mmu.tlb.lookup(0x10 << 12, 1, AccessType::Load, PrivilegeMode::User);
+    let res1 = mmu.tlb.lookup(&csrs, 0x10 << 12, 1, AccessType::Load, PrivilegeMode::User);
     assert!(matches!(res1, TlbResult::Miss));
 
     // Check 2: Global should Hit (Case 4 Protection)
-    let res2 = mmu.tlb.lookup(0x20 << 12, 1, AccessType::Load, PrivilegeMode::Supervisor);
+    let res2 = mmu.tlb.lookup(&csrs, 0x20 << 12, 1, AccessType::Load, PrivilegeMode::Supervisor);
     assert!(matches!(res2, TlbResult::Hit(_, _)));
 
     // Check 3: ASID 2 should Hit
-    let res3 = mmu.tlb.lookup(0x10 << 12, 2, AccessType::Load, PrivilegeMode::User);
+    let res3 = mmu.tlb.lookup(&csrs, 0x10 << 12, 2, AccessType::Load, PrivilegeMode::User);
     assert!(matches!(res3, TlbResult::Hit(_, _)));
 
     // --- Refill Entry 1 for next test ---
@@ -259,18 +259,18 @@ fn test_flush_tlb() {
 
     mmu.flush_tlb(0, 1); // vaddr=0 triggers ASID flush
 
-    let res1 = mmu.tlb.lookup(0x10 << 12, 1, AccessType::Load, PrivilegeMode::User);
+    let res1 = mmu.tlb.lookup(&csrs, 0x10 << 12, 1, AccessType::Load, PrivilegeMode::User);
     assert!(matches!(res1, TlbResult::Miss));
 
-    let res2 = mmu.tlb.lookup(0x20 << 12, 1, AccessType::Load, PrivilegeMode::Supervisor);
+    let res2 = mmu.tlb.lookup(&csrs, 0x20 << 12, 1, AccessType::Load, PrivilegeMode::Supervisor);
     assert!(matches!(res2, TlbResult::Hit(_, _)));
 
     mmu.tlb.fill(0x10 << 12, Sv32Pte::from(pte_a), 1, false); // Refill A
     mmu.flush_tlb(0x10 << 12, 0); // asid=0 triggers VAddr flush
 
-    let res1 = mmu.tlb.lookup(0x10 << 12, 1, AccessType::Load, PrivilegeMode::User);
+    let res1 = mmu.tlb.lookup(&csrs, 0x10 << 12, 1, AccessType::Load, PrivilegeMode::User);
     assert!(matches!(res1, TlbResult::Miss));
-    let res3 = mmu.tlb.lookup(0x10 << 12, 2, AccessType::Load, PrivilegeMode::User);
+    let res3 = mmu.tlb.lookup(&csrs, 0x10 << 12, 2, AccessType::Load, PrivilegeMode::User);
     assert!(matches!(res3, TlbResult::Miss));
 
 
@@ -278,6 +278,6 @@ fn test_flush_tlb() {
     mmu.tlb.fill(0x10 << 12, Sv32Pte::from(pte_a), 1, false);
     mmu.flush_tlb(0, 0);
 
-    let res2 = mmu.tlb.lookup(0x20 << 12, 1, AccessType::Load, PrivilegeMode::Supervisor);
+    let res2 = mmu.tlb.lookup(&csrs, 0x20 << 12, 1, AccessType::Load, PrivilegeMode::Supervisor);
     assert!(matches!(res2, TlbResult::Miss));
 }

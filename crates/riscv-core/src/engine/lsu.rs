@@ -51,15 +51,94 @@ impl<'a> Lsu<'a> {
         })
     }
 
-    pub fn store(&mut self, des: u32, src: u32, offset: i32, num: usize) -> Result<()> {
+    #[cfg(feature = "a")]
+    pub fn atomic_load(&mut self, src: u32) -> Result<(u32, u32)> {
+        let addr = src;
+        if addr & 0b11 != 0 {
+            return Err(Exception::LoadAddressMisaligned);
+        }
+
+        let va_access = Access::new(addr, AccessType::Load);
+        let pa_access = self.pre_work(va_access, 4)?;
+
+        let res = self.bus.read_u32_bytes(pa_access, 4, false).map_err(|e| match e {
+            Exception::LoadAccessFault(_)  => Exception::LoadAccessFault(addr),
+            _ => e,
+        })?;
+        Ok((res, pa_access.addr))
+    }
+
+    pub fn store(&mut self, des: u32, src: u32, offset: i32, num: usize,
+        #[cfg(feature = "a")] reservation: &mut Option<u32>) -> Result<()> {
         let addr = des.wrapping_add_signed(offset);
         let va_access = Access::new(addr, AccessType::Store);
         let pa_access = self.pre_work(va_access, num)?;
 
+        #[cfg(feature = "a")]
+        if let Some(addr) = *reservation && addr == pa_access.addr {
+            *reservation = None;
+        }
+
+
         self.bus.write_u32_bytes(pa_access, src, num).map_err(|e| match e {
-            Exception::StoreAccessFault(_) => Exception::StoreAccessFault(addr),
+            Exception::StoreOrAmoAccessFault(_) => Exception::StoreOrAmoAccessFault(addr),
             _ => e,
         })
+    }
+
+    #[cfg(feature = "a")]
+    pub fn atomic_store(&mut self, des: u32, src: u32, reservation: &mut Option<u32>) -> Result<bool> {
+        let addr = des;
+        if addr & 0b11 != 0 {
+            return Err(Exception::LoadAddressMisaligned);
+        }
+        let va_access = Access::new(addr, AccessType::Store);
+        let pa_access = self.pre_work(va_access, 4)?;
+
+        match reservation {
+            Some(addr) => if *addr != pa_access.addr {
+                return Ok(false);
+            },
+            None => return Ok(false),
+        }
+
+        *reservation = None;
+
+        self.bus.write_u32_bytes(pa_access, src, 4).map_err(|e| match e {
+            Exception::StoreOrAmoAccessFault(_) => Exception::StoreOrAmoAccessFault(addr),
+            _ => e,
+        })?;
+        Ok(true)
+    }
+
+    #[cfg(feature = "a")]
+    pub fn atomic_operate<F>(&mut self, des: u32, data: u32, ope: F, reservation: &mut Option<u32>) -> Result<u32> 
+        where F: Fn(u32, u32) -> u32
+    {
+        let addr = des;
+        if addr & 0b11 != 0 {
+            return Err(Exception::LoadAddressMisaligned);
+        }
+        let va_access = Access::new(addr, AccessType::Amo);
+        let pa_access = self.pre_work(va_access, 4)?;
+
+        if let Some(addr) = *reservation && addr == pa_access.addr {
+            *reservation = None;
+        }
+
+        let tmp = self.bus.read_u32_bytes(pa_access, 4, false).map_err(|e| match e {
+            Exception::StoreOrAmoAccessFault(_)  => Exception::StoreOrAmoAccessFault(addr),
+            _ => e,
+        })?;
+
+        let res_data = ope(tmp, data);
+
+        self.bus.write_u32_bytes(pa_access, res_data, 4).map_err(|e| match e {
+            Exception::StoreOrAmoAccessFault(_) => Exception::StoreOrAmoAccessFault(addr),
+            _ => e,
+        })?;
+
+        Ok(tmp)
     }
 
     #[allow(unused_variables)]
@@ -75,7 +154,7 @@ impl<'a> Lsu<'a> {
         #[cfg(feature = "zicsr")] {
             self.csrs.pmp_check(pa_access, num, self.mode).map_err(|e| match e {
                 Exception::LoadAccessFault(_)  => Exception::LoadAccessFault(va_access.addr),
-                Exception::StoreAccessFault(_) => Exception::StoreAccessFault(va_access.addr),
+                Exception::StoreOrAmoAccessFault(_) => Exception::StoreOrAmoAccessFault(va_access.addr),
                 _ => e,
             })?;
         }
@@ -110,7 +189,8 @@ mod tests {
         let addr = DRAM_BASE_ADDR;
         let val = 0xDEADBEEF;
 
-        lsu.store(addr, val, 0, 4).expect("Store failed");
+        lsu.store(addr, val, 0, 4,
+            #[cfg(feature = "a")]&mut None).expect("Store failed");
         
         let res = lsu.load(addr, 0, 4).expect("Load failed");
         assert_eq!(res, val, "Read back value mismatch");
@@ -136,7 +216,8 @@ mod tests {
         let offset = -4; 
         let val = 0x12345678;
 
-        lsu.store(base, val, offset, 4).unwrap();
+        lsu.store(base, val, offset, 4,
+            #[cfg(feature = "a")]&mut None).unwrap();
         
         let res = lsu.load(base, offset, 4).unwrap();
         assert_eq!(res, val);
@@ -164,7 +245,8 @@ mod tests {
             #[cfg(feature = "zicsr")] mode
         );
 
-        lsu.store(addr, 0xFF, 0, 1).unwrap();
+        lsu.store(addr, 0xFF, 0, 1,
+            #[cfg(feature = "a")]&mut None).unwrap();
 
         let lbu = lsu.load(addr, 0, 1).unwrap();
         assert_eq!(lbu, 0x000000FF, "Lbu failed: expected zero extension");
@@ -172,7 +254,8 @@ mod tests {
         let lb = lsu.load_signed(addr, 0, 1).unwrap();
         assert_eq!(lb, 0xFFFFFFFF, "Lb failed: expected sign extension");
         
-        lsu.store(addr + 4, 0xFFAA, 0, 2).unwrap();
+        lsu.store(addr + 4, 0xFFAA, 0, 2,
+            #[cfg(feature = "a")]&mut None).unwrap();
         
         let lh = lsu.load_signed(addr + 4, 0, 2).unwrap();
         assert_eq!(lh, 0xFFFF_FFAA, "Lh failed");

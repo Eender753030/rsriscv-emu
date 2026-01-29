@@ -33,6 +33,8 @@ pub enum CsrAddr {
     Mip,
     Pmpcfg(usize),
     Pmpaddr(usize),
+
+    Mnstatus,
     Mhartid,
 }
 
@@ -64,6 +66,8 @@ impl TryFrom<u16> for CsrAddr {
             0x344 => Mip,
             num @ 0x3a0..=PMPCFG_END => Pmpcfg((num - 0x3a0) as usize),
             num @ 0x3b0..=PMPADDR_END => Pmpaddr((num - 0x3b0) as usize),
+            
+            0x744 => Mnstatus,
             0xf14 => Mhartid, 
 
             _     => return Err(Exception::IllegalInstruction(value as u32)),

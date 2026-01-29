@@ -156,7 +156,7 @@ mod pmp {
 
         access.kind = AccessType::Store;
         assert_eq!(csr.pmp_check(access, 4, mode),
-            Err(Exception::StoreAccessFault(addr)));
+            Err(Exception::StoreOrAmoAccessFault(addr)));
 
         access.kind = AccessType::Fetch;
         assert_eq!(csr.pmp_check(access, 4, mode), 
@@ -235,6 +235,6 @@ mod pmp {
         set_pmp_entry(&mut csr, 0, cfg_locked, 0x8000_1000 >> 2);
 
         assert_eq!(csr.pmp_check(access, 4, PrivilegeMode::Machine), 
-            Err(Exception::StoreAccessFault(0x8000_0050)));
+            Err(Exception::StoreOrAmoAccessFault(0x8000_0050)));
     }
 }

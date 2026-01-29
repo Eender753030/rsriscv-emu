@@ -78,7 +78,9 @@ impl CsrFile {
 
                 CsrAddr::Pmpcfg(num) => self.pmpcfg[num].into(),
                 CsrAddr::Pmpaddr(num) => self.pmpaddr[num],
-                CsrAddr::Mhartid => 0,
+
+                CsrAddr::Mnstatus => 0,
+                CsrAddr::Mhartid  => 0,
             })
         }
     }
@@ -117,7 +119,9 @@ impl CsrFile {
 
                 CsrAddr::Pmpcfg(num) => self.pmpcfg[num] = data.into(),
                 CsrAddr::Pmpaddr(num) => self.pmpaddr[num] = data, 
-                CsrAddr::Mhartid => return Err(Exception::IllegalInstruction(addr as u32)),
+
+                CsrAddr::Mnstatus => {},
+                CsrAddr::Mhartid  => return Err(Exception::IllegalInstruction(addr as u32)),
             };
             Ok(())
         }
@@ -141,7 +145,7 @@ impl CsrFile {
         let tval = match except_code {
             Exception::IllegalInstruction(raw) => raw,
             Exception::LoadAccessFault(addr) |
-            Exception::StoreAccessFault(addr) |
+            Exception::StoreOrAmoAccessFault(addr) |
             Exception::InstructionAccessFault(addr) | 
             Exception::LoadPageFault(addr) |
             Exception::StoreOrAmoPageFault(addr) |
@@ -330,7 +334,8 @@ impl CsrFile {
             ("mip".to_string(), self.mip),
         ];
         csr_list.extend(pmp_list);
-        csr_list.push(("mhartid".to_string(), 0));
+        csr_list.extend(vec![("mnstatus".to_string(), 0),
+            ("mhartid".to_string(), 0)]);
 
         csr_list
     }

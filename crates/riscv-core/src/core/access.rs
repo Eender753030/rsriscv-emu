@@ -9,6 +9,8 @@ pub enum AccessType {
     Load,
     Store,
     Fetch,
+    #[cfg(feature = "a")]
+    Amo,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -32,8 +34,10 @@ impl<T> Access<T> {
     pub fn into_access_exception(self) -> Exception {
         match self.kind {    
             Load  => Exception::LoadAccessFault(self.addr),
-            Store => Exception::StoreAccessFault(self.addr),
+            Store => Exception::StoreOrAmoAccessFault(self.addr),
             Fetch => Exception::InstructionAccessFault(self.addr),
+            #[cfg(feature = "a")]
+            Amo   => Exception::StoreOrAmoAccessFault(self.addr),
         }
     }
 
@@ -43,6 +47,8 @@ impl<T> Access<T> {
             Load => Exception::LoadPageFault(self.addr),
             Store => Exception::StoreOrAmoPageFault(self.addr),
             Fetch => Exception::InstructionPageFault(self.addr),
+            #[cfg(feature = "a")]
+            Amo   => Exception::StoreOrAmoPageFault(self.addr),
         }
     }  
 }

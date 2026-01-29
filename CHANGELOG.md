@@ -2,11 +2,12 @@
 
 ## [Unreleased]
 ### Added
+- **A Extension**: Implemented A extension instructions and add `rv32ua-p` tests.
 - **Feature Flags**: Split feature by isa extension in both crates and TUI that include `m`, `zicsr`, `zifencei`,and `s` that stand for supervisor.
 - **TLB**: Added TLB for MMU. Use P-LRU for victim algorithm. And added the `sfence.vma` instruction to flush TLB.
 - **PMP**: Added Physical Memory Protection (PMP) that check between MMU and Bus.
 - **TUI: Exception Panel**: Added exception panel that shows last exception which be raised by CPU.
-- **S-Mode Tests**: Added intergration `rv32si-p` without `rv32si-p-wfi`, from offical `riscv-tests` .
+- **S-Mode Tests**: Added some intergration tests from `rv32si-p`, from offical `riscv-tests` .
 
 ### Changed
 - Refactor `riscv-tui` project architecture.

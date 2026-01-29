@@ -26,6 +26,8 @@ pub struct Cpu {
     #[cfg(feature = "s")]
     pub(crate) mmu: Mmu,
     pub(crate) bus: SystemBus,
+    #[cfg(feature = "a")]
+    pub(crate) reservation: Option<u32>,
 }
 
 impl Cpu {
@@ -134,7 +136,9 @@ impl Cpu {
                 return Ok(())
             },
             #[cfg(feature = "m")]
-            Instruction::M(op, data)     => self.execute_m(op, data),
+            Instruction::M(op, data) => self.execute_m(op, data),
+            #[cfg(feature = "a")]
+            Instruction::A(op, data) => self.execute_a(op, data)?,
             #[cfg(feature = "zicsr")]
             Instruction::Zicsr(op, data) => self.execute_zicsr(op, data)?,
             #[cfg(feature = "zifencei")]
