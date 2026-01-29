@@ -38,6 +38,10 @@ impl AOp {
             _ => return None,
         })
     }
+
+    pub fn is_load(&self) -> bool {
+        self == &LrW
+    }
 }
 
 impl std::fmt::Display for AOp {

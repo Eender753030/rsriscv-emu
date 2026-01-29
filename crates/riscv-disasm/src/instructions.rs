@@ -57,6 +57,21 @@ pub fn ins_to_string(ins: Instruction, addr: u32, sym_table: &HashMap<u32, Strin
         M(op, data) => {
             format!("{:<7} x{}, x{}, x{}", op, data.rd, data.rs1, data.rs2)
         },
+        #[cfg(feature = "a")]
+        A(op, data) => {
+            let op_with_suffix = match(data.aq, data.rl) {
+                (1, 0) => format!("{}{}", op, ".aq"),
+                (0, 1) => format!("{}{}", op, ".rl"),
+                (1, 1) => format!("{}{}", op, ".aqrl"),
+                (_, _) => format!("{}{}", op, ""),
+            };
+
+            if op.is_load() {
+                format!("{:<14} x{}, (x{})", op_with_suffix, data.rd, data.rs1)
+            } else {
+                format!("{:<14} x{}, x{}, (x{})", op_with_suffix, data.rd, data.rs2, data.rs1)
+            }
+        }
         #[cfg(feature = "zicsr")]
         Zicsr(op, data) => {
             let csr_str = CsrAddr::try_from(data.imm as u32 & 0xfff)
