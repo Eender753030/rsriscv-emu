@@ -9,6 +9,7 @@ default = []
 
 m = ["riscv-decoder/m"]
 a = ["riscv-decoder/a"]
+c = ["riscv-decoder/c"]
 zicsr = ["riscv-decoder/zicsr", "zifencei"]
 zifencei = ["riscv-decoder/zifencei"]
 
