@@ -1,20 +1,26 @@
 ![Language](https://img.shields.io/badge/language-Rust-orange.svg) ![License](https://img.shields.io/badge/license-MIT-blue.svg) ![Backend](https://img.shields.io/badge/UI-Ratatui-green.svg)
-# RsRiscV Emu: Interactive RV32IM Emulator in Rust
+# RsRiscV Emu: Interactive RV32IMAC Emulator in Rust
 
 (Not update for now) [RsRiscV Asm here](https://github.com/Eender753030/RsRiscV_asm)
 
 ## Key Features
 - **ISA Support**:
     - **RV32IM Core**: Implements Base Integer (I) and Multiply/Divide (M) extensions.
+    - **(NEW)AC Extensions**: Now supports Atomic (A) and Compressed (C) extensions.
     - **Standard Extensions**: Supports **Zicsr** (Control and Status Register) and **Zifencei**.
     - **Privileged Mode**: Implements **Machine Mode (M-Mode)** with precise Exception.
     - **Memory Management (MMU)**: Full **Sv32** Virtual Memory support with Translation Lookaside Buffer (TLB) and Page Table checking.
     - **Compliance**: Passes official **[riscv-tests](https://github.com/riscv-software-src/riscv-tests)** suites:
-        - `rv32ui` (User Integer)
-        - `rv32um` (User Multiply)
+        - `rv32ui-p` (User Integer)
+        - `rv32um-p` (User Multiply)
+        - (New) `rv32ua`
+        - (New) `rv32uc-p` 
+        - (New) Some `rv32si-p`
+        
     
 - **System & Architecture**:
     - **Modular Design**: Built as a Cargo Workspace separating `core` logic, `decoder`, `disasm`, `loader`, and `tui`.
+    - **(New) Feature Flags As Extensions**: Using features flags to simulate adding extension to the CPU.
     - **Memory**: **2GB** Virtualized/Demand-Paged DRAM (base address `0x8000_0000`).
     - **UART**: Memory-mapped serial output at `0x1000_0000` (mapped to host stdout).
     - **Exceptions**: Comprehensive trap handling including Page Faults, Access Faults, and Illegal Instructions.
@@ -27,6 +33,7 @@
     - **Live Disassembly**: Real-time instruction decoding and pipeline visualization.
     - **Dual Register View**: Toggle between **General Purpose Registers (x0-x31)** and **CSRs** (mstatus, mepc, etc.).
     - **Deep Memory Inspection**: Browse the entire 2GB memory space with paging controls.
+    - **(New) Exception Panel**: See the exception and its code with raised address.
 
 ## Demo
 ![RsRisc-V Demo](./assets/v0.1.0_demo.gif)
@@ -44,6 +51,9 @@ cd RsRiscV_emu
 
 # Build the project in release mode for best performance
 cargo build --release
+
+# Add extensions by using feature flags
+cargo build --release --features "m,a,c"
 ```
 ### Usage
 Run the emulator by passing a ELF file as an argument:
@@ -55,6 +65,8 @@ cargo run --release <path_to_ELF_file>
 
 # Example
 cargo run --release ./test
+# or
+cargo run --release --all-features -- ./test
 ```
 **Note**: The input file can be a standard **ELF** file or a raw binary (Little Endian).
 
