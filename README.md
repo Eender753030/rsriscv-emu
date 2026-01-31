@@ -13,7 +13,7 @@
     - **Compliance**: Passes official **[riscv-tests](https://github.com/riscv-software-src/riscv-tests)** suites:
         - `rv32ui-p` (User Integer)
         - `rv32um-p` (User Multiply)
-        - (New) `rv32ua`
+        - (New) `rv32ua-p`
         - (New) `rv32uc-p` 
         - (New) Some `rv32si-p`
         
