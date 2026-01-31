@@ -18,12 +18,16 @@ pub enum OpCode {
     UtypeLui = 0x37,  
     UtypeAuipc = 0x17,
     System = 0x73,
+    #[cfg(feature = "a")]
+    Amo = 0x2f, // Atomic Memory Operation
 }
 
 impl TryFrom<u8> for OpCode {
     type Error = DecodeError;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
+        
+
         Ok(match value {
             0x13 => ItypeAr,
             0x03 => ItypeLoad,
@@ -35,7 +39,9 @@ impl TryFrom<u8> for OpCode {
             0x6f => Jtype,
             0x37 => UtypeLui,
             0x17 => UtypeAuipc,     
-            0x73 => System,  
+            0x73 => System, 
+            #[cfg(feature = "a")]
+            0x2f => Amo, 
             _    => return Err(DecodeError::UnknownOpcode(value)),
         })
     }
@@ -61,7 +67,9 @@ impl std::fmt::Display for OpCode {
             Jtype       => "J-type",
             UtypeLui    => "U-type: lui",
             UtypeAuipc  => "U-type: auipc",   
-            System      => "System",     
+            System      => "System",  
+            #[cfg(feature = "a")]
+            Amo         => "AMO",
         };
         
         f.pad(&format!("{:#02x}({})", opcode, op_str))

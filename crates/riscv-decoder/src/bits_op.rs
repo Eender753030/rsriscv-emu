@@ -22,7 +22,27 @@ impl BitsOp<i32> for u32 {
             return 0;
         }
 
-        (*self as i32) << (32 - offset - len) >> offset
+        (*self as i32) << (32 - offset - len) >> (32 - len)
+    }
+}
+
+#[cfg(feature = "c")]
+impl BitsOp<i16> for u16 {
+    fn get_bits(&self, offset: usize, len: usize) -> Self {
+        if offset >= 16 || len == 0 {
+            return 0;
+        }
+
+        let mask = if len >= 16 { !0 } else { !0 >> (16 - len) };
+
+        (*self >> offset) & mask
+    }
+
+    fn get_bits_signed(&self, offset: usize, len: usize) -> i16 {
+        if offset >= 16 || len == 0 {
+            return 0;
+        }
+        (*self as i16) << (16 - offset - len) >> (16 - len)
     }
 }
 

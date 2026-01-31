@@ -8,12 +8,14 @@ edition.workspace = true
 default = []
 
 m = ["riscv-decoder/m"]
-zicsr = ["riscv-decoder/zicsr"]
+a = ["riscv-decoder/a"]
+c = ["riscv-decoder/c"]
+zicsr = ["riscv-decoder/zicsr", "zifencei"]
 zifencei = ["riscv-decoder/zifencei"]
 
 s = ["zicsr", "riscv-decoder/s"] # Supervisor
 
-full = ["s", "m", "zicsr", "zifencei"]
+full = ["s", "m", "a", "zicsr", "zifencei"]
 
 [dependencies]
 riscv-loader = {workspace = true}

@@ -31,7 +31,7 @@ pub enum EmuMode {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct EmuState {
-    pub ins: ListStateRecord<String>,
+    pub ins: ListStateRecord<(u32, String)>,
     pub reg: ListStateRecord<u32>,
     #[cfg(feature = "zicsr")]
     pub csr: ListStateRecord<(String, u32)>,
@@ -49,7 +49,7 @@ pub struct EmuState {
 }
 
 impl EmuState {
-    pub fn new<D: DebugInterface>(machine: &D, ins_len: usize, ins_list: Vec<String>) -> Self {
+    pub fn new<D: DebugInterface>(machine: &D, ins_len: usize, ins_list: Vec<(u32, String)>) -> Self {
         let machine_info = machine.get_info();
         let (_, dram_base, page_size) = machine_info.get_info();
 

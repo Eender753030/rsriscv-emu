@@ -107,6 +107,26 @@ impl Alu {
             data1.wrapping_rem(data2) 
         }
     }
+
+    #[cfg(feature = "a")]
+    pub fn max(data1: u32, data2: u32) -> u32 {
+        std::cmp::max(data1 as i32, data2 as i32) as u32
+    }
+
+    #[cfg(feature = "a")]
+    pub fn max_unsigned(data1: u32, data2: u32) -> u32 {
+        std::cmp::max(data1, data2)
+    }
+
+    #[cfg(feature = "a")]
+    pub fn min(data1: u32, data2: u32) -> u32 {
+        std::cmp::min(data1 as i32, data2 as i32) as u32
+    }
+
+    #[cfg(feature = "a")]
+    pub fn min_unsigned(data1: u32, data2: u32) -> u32 {
+        std::cmp::min(data1, data2)
+    }
 }
 
 #[cfg(test)]

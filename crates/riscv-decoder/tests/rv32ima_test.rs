@@ -5,6 +5,10 @@ use riscv_decoder::decoder::decode;
 use riscv_decoder::instruction::{Instruction, InstructionData, Rv32iOp};
 #[cfg(feature = "m")]
 use riscv_decoder::instruction::MOp;
+#[cfg(feature = "a")]
+use riscv_decoder::instruction::AOp;
+#[cfg(feature = "a")]
+use riscv_decoder::instruction::AmoInsData;
 
 fn build_base_data(op: Rv32iOp, rd: u8, rs1: u8, rs2: u8, imm: i32) -> Instruction {
     let data = InstructionData { rd, rs1, rs2, imm };
@@ -207,6 +211,26 @@ fn  test_m() {
     // rem x23, x24, x25
     let ins2 = 0x039c6bb3;
     let expect2 = build_m_data(MOp::Rem, 23, 24, 25, 0);
+
+    assert_eq!(decode(ins1), Ok(expect1));
+    assert_eq!(decode(ins2), Ok(expect2));
+}
+
+#[cfg(feature = "a")]
+fn build_a_data(op: AOp, rd: u8, rs1: u8, rs2: u8, rl: u8, aq: u8) -> Instruction {
+    let data = AmoInsData { rd, rs1, rs2, rl, aq };
+    Instruction::A(op, data)
+}
+
+#[test]
+#[cfg(feature = "a")]
+fn  test_a() {
+    // lr.w.aq  x9, (x4)
+    let ins1 = 0x140224af;
+    let expect1 = build_a_data(AOp::LrW, 9, 4, 0, 0, 1);
+    // ammominu.w.rl x10, x0, x25
+    let ins2 = 0xc390252f;
+    let expect2 = build_a_data(AOp::AmoMinuW, 10, 0, 25, 1, 0);
 
     assert_eq!(decode(ins1), Ok(expect1));
     assert_eq!(decode(ins2), Ok(expect2));

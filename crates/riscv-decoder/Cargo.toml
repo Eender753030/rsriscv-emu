@@ -8,12 +8,14 @@ edition.workspace = true
 default = []
 
 m = []
-zicsr = []
+a = []
+c = []
+zicsr = ["zifencei"]
 zifencei = []
 
 s = ["zicsr"] # Supervisor
 
-full = ["s", "m", "zicsr", "zifencei"]
+full = ["s", "a", "m", "c", "zicsr", "zifencei"]
 
 [dependencies]
 thiserror = "2"

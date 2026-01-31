@@ -10,6 +10,11 @@ impl PC {
         self.pointer += 4;
     }
 
+    #[cfg(feature = "c")]
+    pub fn half_step(&mut self) {
+        self.pointer += 2;
+    }
+
     pub fn get(&self) -> u32 {
         self.pointer
     }

@@ -85,7 +85,7 @@ fn test_exception_trap_handling() {
 
     // mtvec = 0x8000_0100
     let handler_base = DRAM_BASE_ADDR + 0x100;
-    cpu.csrs.write(0x305, handler_base, PrivilegeMode::Machine).unwrap();
+    cpu.csrs.write(0x305, handler_base, PrivilegeMode::Machine, 0).unwrap();
 
     // Illegal: 0xFFFFFFFF
     let illegal_inst = 0xFFFFFFFFu32.to_le_bytes();
@@ -95,10 +95,10 @@ fn test_exception_trap_handling() {
 
     assert_eq!(cpu.pc.get(), handler_base, "Did not trap to mtvec");
 
-    let mcause = cpu.csrs.read(0x342, PrivilegeMode::Machine).unwrap();
+    let mcause = cpu.csrs.read(0x342, PrivilegeMode::Machine, 0).unwrap();
     assert_eq!(mcause, 2, "mcause wrong");
 
-    let mepc = cpu.csrs.read(0x341, PrivilegeMode::Machine).unwrap();
+    let mepc = cpu.csrs.read(0x341, PrivilegeMode::Machine, 0).unwrap();
     assert_eq!(mepc, DRAM_BASE_ADDR, "mepc wrong");
 }
 

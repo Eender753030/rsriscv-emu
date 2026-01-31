@@ -1,4 +1,4 @@
-#![cfg(all(feature = "zicsr"))]
+#![cfg(feature = "c")]
 
 mod common;
 
@@ -6,12 +6,12 @@ use std::path::Path;
 use std::fs;
 
 #[test]
-fn test_rv32ui_p() {
+fn test_rv32uc_p() {
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    let test_dir = Path::new(manifest_dir).join("tests/data/rv32ui-p");
+    let test_dir = Path::new(manifest_dir).join("tests/data/rv32uc-p");
 
     if !test_dir.exists() {
-        eprintln!("Skipping rv32ui-p tests: Directory not found at {:?}", test_dir);
+        eprintln!("Skipping rv32uc-p tests: Directory not found at {:?}", test_dir);
         return;
     }
 

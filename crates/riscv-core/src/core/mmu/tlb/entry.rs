@@ -1,6 +1,6 @@
 use modular_bitfield::prelude::*;
 
-use crate::core::PrivilegeMode; 
+use crate::core::{CsrFile, PrivilegeMode}; 
 use crate::core::access::AccessType;
 use crate::core::mmu::sv32::Sv32Pte;
 
@@ -70,16 +70,18 @@ impl TlbEntry {
         self.set_d(pte.is_dirty() as u8);
     } 
 
-    pub fn access_check(&self, kind: AccessType, mode: PrivilegeMode) -> bool {
+    pub fn access_check(&self, kind: AccessType, mode: PrivilegeMode, csrs: &CsrFile) -> bool {
         let can_access = match kind {
-            AccessType::Load  => self.can_read(),
+            AccessType::Load  => self.can_read() || (self.can_execute() && csrs.check_mxr()),
             AccessType::Store => self.can_write(),
             AccessType::Fetch => self.can_execute(),
+            #[cfg(feature = "a")]
+            AccessType::Amo   => self.can_read() && self.can_write(),
         };
         
         let can_mode = 
             (mode == PrivilegeMode::User       && self.can_user()) ||
-            (mode == PrivilegeMode::Supervisor && !self.can_user());
+            (mode == PrivilegeMode::Supervisor && (csrs.check_sum() || !self.can_user()));
     
         can_access && can_mode
     }
@@ -88,6 +90,8 @@ impl TlbEntry {
         match kind {
             AccessType::Load | AccessType::Fetch => self.is_accessed(),
             AccessType::Store => self.is_accessed() && self.is_dirty(),
+            #[cfg(feature = "a")]
+            AccessType::Amo   => self.is_accessed() && self.is_dirty(),
         }
     }
 

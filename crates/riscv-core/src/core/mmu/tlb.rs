@@ -5,7 +5,7 @@ mod set;
 
 use std::ops::IndexMut;
 
-use crate::core::PrivilegeMode; 
+use crate::core::{CsrFile, PrivilegeMode}; 
 use crate::core::access::AccessType;
 use crate::core::mmu::sv32::Sv32Pte;
 
@@ -24,7 +24,13 @@ pub struct Tlb {
 }
 
 impl Tlb {
-    pub fn lookup(&mut self, v_addr: u32, asid: u16, kind: AccessType, mode: PrivilegeMode) -> TlbResult {
+    pub fn lookup(
+        &mut self, 
+        csrs: &CsrFile,
+        v_addr: u32,
+        asid: u16, 
+        kind: AccessType, 
+        mode: PrivilegeMode) -> TlbResult {
         let vpn = v_addr >> 12;
         let set_idx = Self::get_set_idx(vpn);
         let tag = (vpn >> TLB_SET_SHIFT) as u16;
@@ -36,7 +42,7 @@ impl Tlb {
                 self.sets[set_idx].update(idx);
                 let entry = &self.sets[set_idx].entries[idx];
 
-                if entry.access_check(kind, mode) {
+                if entry.access_check(kind, mode, csrs) {
                     if entry.ad_check(kind) {
                         TlbResult::Hit(entry.is_mega_page(), entry.ppn())
                     } else {

@@ -1,6 +1,8 @@
 pub mod rv32i;
 #[cfg(feature = "m")]
 pub mod m;
+#[cfg(feature = "a")]
+pub mod a;
 #[cfg(feature = "zicsr")]
 pub mod zicsr;
 #[cfg(feature = "zicsr")]

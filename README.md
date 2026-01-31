@@ -12,7 +12,6 @@
     - **Compliance**: Passes official **[riscv-tests](https://github.com/riscv-software-src/riscv-tests)** suites:
         - `rv32ui` (User Integer)
         - `rv32um` (User Multiply)
-        - `rv32mi` (Machine Privileged)
     
 - **System & Architecture**:
     - **Modular Design**: Built as a Cargo Workspace separating `core` logic, `decoder`, `disasm`, `loader`, and `tui`.

@@ -12,14 +12,15 @@ impl Cpu {
         let (mode, pc) = match op {
             Mret           => self.csrs.trap_mret(),
             #[cfg(feature = "s")]
-            Sret           => self.csrs.trap_sret(),
+            Sret           => self.csrs.trap_sret(self.mode)?,
             #[cfg(feature = "s")]
             SfenceVma(raw) => {
-                // when mstatus.TVM = 1 S-Mode will failed. 
-                // But mstatus.TVM not Implement for now
                 if self.mode == PrivilegeMode::User {
                     return Err(Exception::IllegalInstruction(raw));
                 }  
+                if self.mode == PrivilegeMode::Supervisor && self.csrs.check_tvm() {
+                    return Err(Exception::IllegalInstruction(raw));
+                }
                 let rs1_data = self.regs[data.rs1];
                 let rs2_data = self.regs[data.rs2];
                 self.mmu.flush_tlb(rs1_data, rs2_data);

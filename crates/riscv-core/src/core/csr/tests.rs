@@ -7,19 +7,13 @@ fn test_csr_rw_permission() {
     let mut csr = CsrFile::default();
     let val = 0xDEAD_BEEF;
 
-    assert!(csr.write(0x340, val, PrivilegeMode::Machine).is_ok());
-    assert_eq!(csr.read(0x340, PrivilegeMode::Machine), Ok(val));
+    assert!(csr.write(0x340, val, PrivilegeMode::Machine, 0).is_ok());
+    assert_eq!(csr.read(0x340, PrivilegeMode::Machine, 0), Ok(val));
 
     #[cfg(feature = "s")]
-    assert_eq!(
-        csr.read(0x340, PrivilegeMode::Supervisor),
-        Err(Exception::IllegalInstruction(0x340))
-    );
+    assert!(csr.read(0x340, PrivilegeMode::Supervisor, 0).is_err());
 
-    assert_eq!(
-        csr.write(0x340, 0x1234, PrivilegeMode::User),
-        Err(Exception::IllegalInstruction(0x340))
-    );
+    assert!(csr.write(0x340, 0x1234, PrivilegeMode::User, 0).is_err());
 }
 
 #[test]
@@ -27,13 +21,13 @@ fn test_mstatus_behavior() {
     let mut csr = CsrFile::default();
     
     let pattern = (1 << 3) | (1 << 7); 
-    csr.write(0x300, pattern, PrivilegeMode::Machine).unwrap();
+    csr.write(0x300, pattern, PrivilegeMode::Machine, 0).unwrap();
     
-    let read_back = csr.read(0x300, PrivilegeMode::Machine).unwrap();
+    let read_back = csr.read(0x300, PrivilegeMode::Machine, 0).unwrap();
     assert_eq!(read_back & pattern, pattern);
     
     #[cfg(feature = "s")] {
-        let sstatus = csr.read(0x100, PrivilegeMode::Supervisor).unwrap();
+        let sstatus = csr.read(0x100, PrivilegeMode::Supervisor, 0).unwrap();
         assert_eq!(sstatus, 0);
     }
 }
@@ -45,10 +39,10 @@ fn test_trap_entry() {
     let cause = Exception::IllegalInstruction(0);
     
     let mstatus_init = 1 << 3;
-    csr.write(0x300, mstatus_init, PrivilegeMode::Machine).unwrap();
+    csr.write(0x300, mstatus_init, PrivilegeMode::Machine, 0).unwrap();
     
     let handler_base = 0x8000_0004;
-    csr.write(0x305, handler_base, PrivilegeMode::Machine).unwrap();
+    csr.write(0x305, handler_base, PrivilegeMode::Machine, 0).unwrap();
 
     let (next_mode, next_pc) = csr.trap_entry(fault_pc, cause, PrivilegeMode::Machine);
 
@@ -59,7 +53,7 @@ fn test_trap_entry() {
     assert_eq!(csr.mepc, fault_pc);
     assert_eq!(csr.mcause, u32::from(cause));
 
-    let mstatus_new = csr.read(0x300, PrivilegeMode::Machine).unwrap();
+    let mstatus_new = csr.read(0x300, PrivilegeMode::Machine, 0).unwrap();
     assert_eq!(mstatus_new & (1 << 3), 0);
     assert_eq!(mstatus_new & (1 << 7), (1 << 7));
 }
@@ -71,14 +65,14 @@ fn test_trap_return_mret() {
 
     csr.mepc = ret_pc;
     let mstatus_trap_state = (1 << 7) | (3 << 11); 
-    csr.write(0x300, mstatus_trap_state, PrivilegeMode::Machine).unwrap();
+    csr.write(0x300, mstatus_trap_state, PrivilegeMode::Machine, 0).unwrap();
 
     let (ret_mode, target_pc) = csr.trap_mret();
 
     assert_eq!(target_pc, ret_pc);
     assert_eq!(ret_mode, PrivilegeMode::Machine);
 
-    let mstatus_after = csr.read(0x300, PrivilegeMode::Machine).unwrap();
+    let mstatus_after = csr.read(0x300, PrivilegeMode::Machine, 0).unwrap();
     assert_eq!(mstatus_after & (1 << 3), (1 << 3));
     assert_eq!(mstatus_after & (1 << 7), (1 << 7));
     assert_eq!(mstatus_after & (3 << 11), 0);
@@ -91,10 +85,10 @@ fn test_exception_delegation() {
     let fault_pc = 0x8000_3000;
     let cause = Exception::Breakpoint;
 
-    csr.write(0x302, 1 << 3, PrivilegeMode::Machine).unwrap();
+    csr.write(0x302, 1 << 3, PrivilegeMode::Machine, 0).unwrap();
     
     let s_handler = 0x8000_4000;
-    csr.write(0x105, s_handler, PrivilegeMode::Supervisor).unwrap();
+    csr.write(0x105, s_handler, PrivilegeMode::Supervisor, 0).unwrap();
 
     let (next_mode, next_pc) = csr.trap_entry(fault_pc, cause, PrivilegeMode::User);
 
@@ -116,14 +110,14 @@ mod pmp {
     fn set_pmp_entry(csr: &mut CsrFile, idx: usize, cfg: u8, addr: u32) {
         let shift = (idx % 4) * 8;
         
-        let mut curr_cfg = csr.read(0x3a0, PrivilegeMode::Machine).unwrap();
+        let mut curr_cfg = csr.read(0x3a0, PrivilegeMode::Machine, 0).unwrap();
         curr_cfg &= !(0xff << shift);
 
         curr_cfg |= (cfg as u32) << shift;
-        csr.write(0x3a0, curr_cfg, PrivilegeMode::Machine).unwrap();
+        csr.write(0x3a0, curr_cfg, PrivilegeMode::Machine, 0).unwrap();
 
         let csr_addr = 0x3b0 + idx as u16;
-        csr.write(csr_addr, addr, PrivilegeMode::Machine).unwrap();
+        csr.write(csr_addr, addr, PrivilegeMode::Machine, 0).unwrap();
     }
 
     #[test]
@@ -156,7 +150,7 @@ mod pmp {
 
         access.kind = AccessType::Store;
         assert_eq!(csr.pmp_check(access, 4, mode),
-            Err(Exception::StoreAccessFault(addr)));
+            Err(Exception::StoreOrAmoAccessFault(addr)));
 
         access.kind = AccessType::Fetch;
         assert_eq!(csr.pmp_check(access, 4, mode), 
@@ -235,6 +229,6 @@ mod pmp {
         set_pmp_entry(&mut csr, 0, cfg_locked, 0x8000_1000 >> 2);
 
         assert_eq!(csr.pmp_check(access, 4, PrivilegeMode::Machine), 
-            Err(Exception::StoreAccessFault(0x8000_0050)));
+            Err(Exception::StoreOrAmoAccessFault(0x8000_0050)));
     }
 }

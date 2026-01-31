@@ -26,6 +26,10 @@ pub struct Cpu {
     #[cfg(feature = "s")]
     pub(crate) mmu: Mmu,
     pub(crate) bus: SystemBus,
+    #[cfg(feature = "a")]
+    pub(crate) reservation: Option<u32>,
+    #[cfg(feature = "c")]
+    pub(crate) is_compress: bool,
 }
 
 impl Cpu {
@@ -65,11 +69,9 @@ impl Cpu {
     }
 
     pub fn set_mem_zero(&mut self, addr: u32, size: usize) -> std::result::Result<(), RiscVError> {
-        for i in 0..size {
-            let access = Access::new(addr + i as u32, AccessType::Store);
-            self.bus.write_byte(access, 0)
-                .map_err(|_| RiscVError::BssInitFailed)?
-        }
+        let access = Access::new(addr, AccessType::Store); 
+    
+        self.bus.write_bytes(access, size, &vec![0; size]).map_err(|_| RiscVError::BssInitFailed)?;
         Ok(())
     }
 
@@ -90,8 +92,19 @@ impl Cpu {
     }
 
     fn cycle(&mut self) -> Result<()> {
+        #[cfg(feature = "c")]
+        let ins = if let Some(c_raw) = self.c_fetch()? {
+            self.is_compress = true;
+            self.decompress(u16::from_le_bytes(c_raw))?
+        } else {
+            let raw = self.fetch()?;
+            self.is_compress = false;
+            self.decode(raw)?
+        };
+
+        #[cfg(not(feature = "c"))]
         let raw = self.fetch()?;
-        
+        #[cfg(not(feature = "c"))]
         let ins = self.decode(raw)?;
         
         self.execute(ins)?;
@@ -105,7 +118,7 @@ impl Cpu {
         let pa_access = va_access;
 
         #[cfg(feature = "s")]
-        let pa_access = self.mmu.translate(va_access, self.mode, self.csrs.check_satp() , &mut self.bus)?;
+        let pa_access = self.mmu.translate(va_access, self.mode, &self.csrs, &mut self.bus)?;
 
         #[cfg(feature = "zicsr")]
         self.csrs.pmp_check(pa_access, 4, self.mode).map_err(|e| match e {
@@ -119,9 +132,43 @@ impl Cpu {
         })
     }
 
+    #[cfg(feature = "c")]
+    fn c_fetch(&mut self) -> Result<Option<[u8; 2]>> {
+        let va_access = Access::new(self.pc.get(), AccessType::Fetch);
+
+        #[cfg(not(feature = "s"))]
+        let pa_access = va_access;
+
+        #[cfg(feature = "s")]
+        let pa_access = self.mmu.translate(va_access, self.mode, &self.csrs, &mut self.bus)?;
+
+        #[cfg(feature = "zicsr")]
+        self.csrs.pmp_check(pa_access, 2, self.mode).map_err(|e| match e {
+            Exception::InstructionAccessFault(_) => Exception::InstructionAccessFault(va_access.addr),
+            _ => e
+        })?;
+
+        let mut half_raw = [0; 2];
+        self.bus.read_bytes(pa_access, 2, &mut half_raw).map_err(|e| match e {
+            Exception::InstructionAccessFault(_) => Exception::InstructionAccessFault(va_access.addr),
+            _ => e
+        })?;
+
+        Ok(if half_raw[0] & 0b11 != 0b11 {
+            Some(half_raw)
+        } else {
+            None
+        })
+    }
+
     fn decode(&self, bytes: u32) -> Result<Instruction> {
         decoder::decode(bytes)
             .map_err(|_| Exception::IllegalInstruction(bytes))
+    }
+
+    fn decompress(&self, c_bytes: u16) -> Result<Instruction> {
+        decoder::decompress(c_bytes)
+            .map_err(|_| Exception::IllegalInstruction(c_bytes as u32))
     }
 
     fn execute(&mut self, ins: Instruction) -> Result<()> {
@@ -134,12 +181,21 @@ impl Cpu {
                 return Ok(())
             },
             #[cfg(feature = "m")]
-            Instruction::M(op, data)     => self.execute_m(op, data),
+            Instruction::M(op, data) => self.execute_m(op, data),
+            #[cfg(feature = "a")]
+            Instruction::A(op, data) => self.execute_a(op, data)?,
             #[cfg(feature = "zicsr")]
-            Instruction::Zicsr(op, data) => self.execute_zicsr(op, data)?,
+            Instruction::Zicsr(op, data, raw) => self.execute_zicsr(op, data, raw)?,
             #[cfg(feature = "zifencei")]
             Instruction::Zifencei(_, _)  => {},          
         }
+        #[cfg(feature = "c")]
+        if self.is_compress {
+            self.pc.half_step();
+        } else {
+            self.pc.step();
+        }
+        #[cfg(not(feature = "c"))]
         self.pc.step();
         Ok(())
     }

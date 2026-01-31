@@ -2,6 +2,7 @@ mod sv32;
 mod tlb;
 
 use crate::Result;
+use crate::core::CsrFile;
 use crate::core::privilege::PrivilegeMode;
 use crate::device::bus::SystemBus;
 use crate::core::access::{Access, AccessType, Physical, Virtual};
@@ -21,8 +22,8 @@ impl Mmu {
         &mut self, 
         access: Access<Virtual>, 
         mode: PrivilegeMode, 
-        satp_opt: Option<(u16, u32)>,
-        bus: &mut SystemBus
+        csrs: &CsrFile,
+        bus: &mut SystemBus,
     ) -> Result<Access<Physical>> {
         let v_addr = access.addr; 
 
@@ -30,12 +31,12 @@ impl Mmu {
             return Ok(access.bypass());
         }
 
-        let (asid, root_ppn) = match satp_opt {
+        let (asid, root_ppn) = match csrs.check_satp(mode)? {
             Some((asid, ppn)) => (asid, ppn),
             None => return Ok(access.bypass()),
         };
 
-        let tlb_res = self.tlb.lookup(v_addr, asid, access.kind, mode);
+        let tlb_res = self.tlb.lookup(csrs, v_addr, asid, access.kind, mode);
 
         match tlb_res {
             TlbResult::Hit(is_mega, ppn) => {
@@ -71,7 +72,7 @@ impl Mmu {
             }
         };
 
-        Self::access_check(&pte, &access, mode)?;
+        Self::access_check(&pte, &access, mode, csrs)?;
 
         let mut update_pte = false;
 
@@ -111,16 +112,18 @@ impl Mmu {
         Ok((pte, pte_addr, pte.is_leaf()))
     }
 
-    fn access_check(pte: &Sv32Pte, access: &Access<Virtual>, mode: PrivilegeMode) -> Result<()> {
+    fn access_check(pte: &Sv32Pte, access: &Access<Virtual>, mode: PrivilegeMode, csrs: &CsrFile) -> Result<()> {
         let can_access = match access.kind {
-            AccessType::Load  => pte.can_read(),
+            AccessType::Load  => pte.can_read() || (pte.can_execute() && csrs.check_mxr()),
             AccessType::Store => pte.can_write(),
             AccessType::Fetch => pte.can_execute(),
+            #[cfg(feature = "a")]
+            AccessType::Amo => pte.can_read() && pte.can_write(),
         };
         
         let can_mode = 
             (mode == PrivilegeMode::User       && pte.can_user()) ||
-            (mode == PrivilegeMode::Supervisor && !pte.can_user());
+            (mode == PrivilegeMode::Supervisor && (csrs.check_sum() || !pte.can_user()));
     
         if can_access && can_mode {
             Ok(())

@@ -11,9 +11,9 @@ use riscv_decoder::instruction::ZifenceiOp;
 
 
 #[cfg(feature = "zicsr")]
-fn build_zicsr_data(op: ZicsrOp, rd: u8, rs1: u8, rs2: u8, imm: i32) -> Instruction {
+fn build_zicsr_data(op: ZicsrOp, rd: u8, rs1: u8, rs2: u8, imm: i32, raw: u32) -> Instruction {
     let data = InstructionData { rd, rs1, rs2, imm };
-    Instruction::Zicsr(op, data)
+    Instruction::Zicsr(op, data, raw)
 }
 
 #[test]
@@ -21,22 +21,22 @@ fn build_zicsr_data(op: ZicsrOp, rd: u8, rs1: u8, rs2: u8, imm: i32) -> Instruct
 fn  test_zicsr() {
     // csrrw x0, mstatus, x5
     let ins1 = 0x30029073;
-    let expect1 = build_zicsr_data(ZicsrOp::Csrrw, 0, 5, 0, 0x300);
+    let expect1 = build_zicsr_data(ZicsrOp::Csrrw, 0, 5, 0, 0x300, ins1);
     // csrrci x0, mepc, 6
     let ins2 = 0x34137073;
-    let expect2 = build_zicsr_data(ZicsrOp::Csrrci, 0, 6, 1, 0x341);
+    let expect2 = build_zicsr_data(ZicsrOp::Csrrci, 0, 6, 1, 0x341, ins2);
 
     assert_eq!(decode(ins1), Ok(expect1));
     assert_eq!(decode(ins2), Ok(expect2));
 
-    if let Instruction::Zicsr(op1, _) = decode(ins1).unwrap() {
+    if let Instruction::Zicsr(op1, _, _) = decode(ins1).unwrap() {
         assert!(op1.is_rw());
         assert!(!op1.is_imm());
     } else {
         unreachable!("Should be Base of Instruction");
     }
     
-    if let Instruction::Zicsr(op2, _) = decode(ins2).unwrap() {
+    if let Instruction::Zicsr(op2, _, _) = decode(ins2).unwrap() {
         assert!(op2.is_rc());
             assert!(op2.is_imm());
     } else {

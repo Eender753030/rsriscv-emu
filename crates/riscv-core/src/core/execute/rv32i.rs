@@ -38,7 +38,16 @@ impl Cpu {
         }
 
         if let Some(res) = Self::jump(op) {
-            self.regs.write(data.rd, self.pc.get() + 4);
+            #[cfg(feature = "c")]
+            let next_ins_addr = if self.is_compress {
+                2
+            } else {
+                4
+            };
+            #[cfg(not(feature = "c"))]
+            let next_ins_addr = 4;
+            
+            self.regs.write(data.rd, self.pc.get() + next_ins_addr);
             match res {
                 true  => self.pc.directed_addressing(rs1_data.wrapping_add_signed(data.imm)),
                 false => self.pc.related_addressing(data.imm),
@@ -55,7 +64,7 @@ impl Cpu {
     fn alu_imm(op: Rv32iOp, data: u32, imm: i32, pc: u32) -> Option<u32> {
         Some(match op {
             Addi  => Alu::add_signed(data, imm),
-            Slli  => Alu::shl_logic(data, data),
+            Slli  => Alu::shl_logic(data, imm as u32),
             Slti  => Alu::set_less_than(data as i32, imm),
             Sltiu => Alu::set_less_than_unsigned(data, imm as u32),
             Xori  => Alu::xor(data, imm as u32),
@@ -125,7 +134,8 @@ impl Cpu {
             #[cfg(feature = "zicsr")] self.mode
         );
 
-        Some(lsu.store(des, src, offset, byte_num))
+        Some(lsu.store(des, src, offset, byte_num, 
+            #[cfg(feature = "a")] &mut self.reservation))
     }
 
     fn branch(op: Rv32iOp, data1: u32, data2: u32) -> Option<bool> {
