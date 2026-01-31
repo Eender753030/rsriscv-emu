@@ -38,7 +38,16 @@ impl Cpu {
         }
 
         if let Some(res) = Self::jump(op) {
-            self.regs.write(data.rd, self.pc.get() + 4);
+            #[cfg(feature = "c")]
+            let next_ins_addr = if self.is_compress {
+                2
+            } else {
+                4
+            };
+            #[cfg(not(feature = "c"))]
+            let next_ins_addr = 4;
+            
+            self.regs.write(data.rd, self.pc.get() + next_ins_addr);
             match res {
                 true  => self.pc.directed_addressing(rs1_data.wrapping_add_signed(data.imm)),
                 false => self.pc.related_addressing(data.imm),

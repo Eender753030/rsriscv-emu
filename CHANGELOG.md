@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 ### Added
+- **C Extension**: Implemented C extension instructions and add `rv32uc-p` tests.
 - **A Extension**: Implemented A extension instructions and add `rv32ua-p` tests.
 - **Feature Flags**: Split feature by isa extension in both crates and TUI that include `m`, `zicsr`, `zifencei`,and `s` that stand for supervisor.
 - **TLB**: Added TLB for MMU. Use P-LRU for victim algorithm. And added the `sfence.vma` instruction to flush TLB.
@@ -11,9 +12,12 @@
 
 ### Changed
 - Refactor `riscv-tui` project architecture.
+- Disasm now return `Vec<(u32, String)>` that can make TUI PC pointer work easier.
 
 ### Fixed
 - Fixed panic when PC not in instructions' scope.
+- Fixed Some logic error and arithmetic error
+- Fixed Some tests that did not really run to the end but pass
 
 ## [0.2.1] - 2026-01-26
 ### Added

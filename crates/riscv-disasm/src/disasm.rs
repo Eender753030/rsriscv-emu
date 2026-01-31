@@ -8,7 +8,7 @@ use riscv_decoder::decoder::decompress;
 use crate::instructions::ins_to_string;
 
 #[cfg(not(feature = "c"))]
-pub fn disassembler(info: &LoadInfo) -> Vec<String> {
+pub fn disassembler(info: &LoadInfo) -> Vec<(u32, String)> {
     let empty_table = HashMap::new();
     let sym_table = info.symbols.as_ref().unwrap_or(&empty_table);
 
@@ -22,14 +22,14 @@ pub fn disassembler(info: &LoadInfo) -> Vec<String> {
                 let mut lines = Vec::new();
 
                 if let Some(sym) = sym_table.get(&curr_addr) {
-                    lines.push(format!("{}:", sym));
+                    lines.push((curr_addr, format!("{}:", sym)));
                 }
 
                 let body = decode(raw)
                     .map(|ins| ins_to_string(ins, curr_addr, sym_table))
                     .unwrap_or_else(|_| format!("(Unknown) {:010x}", raw));
                 
-                lines.push(format!("    {:#010x}: {}", curr_addr, body));
+                lines.push((curr_addr, format!("    {:#010x}: {}", curr_addr, body)));
                 
                 lines
             })
@@ -37,7 +37,7 @@ pub fn disassembler(info: &LoadInfo) -> Vec<String> {
 }
 
 #[cfg(feature = "c")]
-pub fn disassembler(info: &LoadInfo) -> Vec<String> {
+pub fn disassembler(info: &LoadInfo) -> Vec<(u32, String)> {
     let empty_table = HashMap::new();
     let sym_table = info.symbols.as_ref().unwrap_or(&empty_table);
 
@@ -51,7 +51,7 @@ pub fn disassembler(info: &LoadInfo) -> Vec<String> {
             let curr_addr = base_addr + offset as u32;
 
             if offset + 2 > len {
-                res.push(format!("    {:#010x}: (Incomplete)", curr_addr));
+                res.push((curr_addr, format!("    {:#010x}: (Incomplete)", curr_addr)));
                 break;
             }
 
@@ -64,11 +64,11 @@ pub fn disassembler(info: &LoadInfo) -> Vec<String> {
             let (ins_len, body) = if is_compress {
                 let body = decompress(c_raw)
                     .map(|ins| format!("(C) {}", ins_to_string(ins, curr_addr, sym_table)))
-                    .unwrap_or_else(|_| format!("(Unknown Compress) {:06x}", c_raw));
+                    .unwrap_or_else(|_| format!("(Unknown Compress) {:#06x}", c_raw));
                 (2, body)
             } else {
                 if offset + 4 > len {
-                    res.push(format!("    {:#010x}: (Incomplete)", curr_addr));
+                    res.push((curr_addr, format!("    {:#010x}: (Incomplete)", curr_addr)));
                     break;
                 }
 
@@ -85,9 +85,9 @@ pub fn disassembler(info: &LoadInfo) -> Vec<String> {
             let mut lines = Vec::new();
 
             if let Some(sym) = sym_table.get(&curr_addr) {
-                lines.push(format!("{}:", sym));
+                lines.push((curr_addr, format!("{}:", sym)));
             }
-            lines.push(format!("    {:#010x}: {}", curr_addr, body));
+            lines.push((curr_addr, format!("    {:#010x}: {}", curr_addr, body)));
 
             res.extend(lines);
 
@@ -124,9 +124,9 @@ mod tests {
 
         let output = disassembler(&info);
 
-        assert!(output.contains(&"main:".to_string()));
-        assert!(output[1].contains("addi    x10, x0, 0"));
-        assert!(output[2].contains("ecall"));
+        assert!(output[0].1.contains(&"main:".to_string()));
+        assert!(output[1].1.contains("addi    x10, x0, 0"));
+        assert!(output[2].1.contains("ecall"));
     }
 
     #[test]
@@ -150,9 +150,9 @@ mod tests {
 
         let output = disassembler(&info);
 
-        assert!(output.contains(&"main:".to_string()));
-        assert!(output[1].contains("(C) addi    x2, x2, -16"));
-        assert!(output[2].contains("ecall"));
-        assert!(output[3].contains("(C) ebreak"));
+        assert!(output[0].1.contains(&"main:".to_string()));
+        assert!(output[1].1.contains("(C) addi    x2, x2, -16"));
+        assert!(output[2].1.contains("ecall"));
+        assert!(output[3].1.contains("(C) ebreak"));
     }
 }

@@ -28,6 +28,8 @@ pub struct Cpu {
     pub(crate) bus: SystemBus,
     #[cfg(feature = "a")]
     pub(crate) reservation: Option<u32>,
+    #[cfg(feature = "c")]
+    pub(crate) is_compress: bool,
 }
 
 impl Cpu {
@@ -90,8 +92,19 @@ impl Cpu {
     }
 
     fn cycle(&mut self) -> Result<()> {
+        #[cfg(feature = "c")]
+        let ins = if let Some(c_raw) = self.c_fetch()? {
+            self.is_compress = true;
+            self.decompress(u16::from_le_bytes(c_raw))?
+        } else {
+            let raw = self.fetch()?;
+            self.is_compress = false;
+            self.decode(raw)?
+        };
+
+        #[cfg(not(feature = "c"))]
         let raw = self.fetch()?;
-        
+        #[cfg(not(feature = "c"))]
         let ins = self.decode(raw)?;
         
         self.execute(ins)?;
@@ -119,9 +132,43 @@ impl Cpu {
         })
     }
 
+    #[cfg(feature = "c")]
+    fn c_fetch(&mut self) -> Result<Option<[u8; 2]>> {
+        let va_access = Access::new(self.pc.get(), AccessType::Fetch);
+
+        #[cfg(not(feature = "s"))]
+        let pa_access = va_access;
+
+        #[cfg(feature = "s")]
+        let pa_access = self.mmu.translate(va_access, self.mode, &self.csrs, &mut self.bus)?;
+
+        #[cfg(feature = "zicsr")]
+        self.csrs.pmp_check(pa_access, 2, self.mode).map_err(|e| match e {
+            Exception::InstructionAccessFault(_) => Exception::InstructionAccessFault(va_access.addr),
+            _ => e
+        })?;
+
+        let mut half_raw = [0; 2];
+        self.bus.read_bytes(pa_access, 2, &mut half_raw).map_err(|e| match e {
+            Exception::InstructionAccessFault(_) => Exception::InstructionAccessFault(va_access.addr),
+            _ => e
+        })?;
+
+        Ok(if half_raw[0] & 0b11 != 0b11 {
+            Some(half_raw)
+        } else {
+            None
+        })
+    }
+
     fn decode(&self, bytes: u32) -> Result<Instruction> {
         decoder::decode(bytes)
             .map_err(|_| Exception::IllegalInstruction(bytes))
+    }
+
+    fn decompress(&self, c_bytes: u16) -> Result<Instruction> {
+        decoder::decompress(c_bytes)
+            .map_err(|_| Exception::IllegalInstruction(c_bytes as u32))
     }
 
     fn execute(&mut self, ins: Instruction) -> Result<()> {
@@ -142,6 +189,13 @@ impl Cpu {
             #[cfg(feature = "zifencei")]
             Instruction::Zifencei(_, _)  => {},          
         }
+        #[cfg(feature = "c")]
+        if self.is_compress {
+            self.pc.half_step();
+        } else {
+            self.pc.step();
+        }
+        #[cfg(not(feature = "c"))]
         self.pc.step();
         Ok(())
     }

@@ -9,12 +9,13 @@ default = []
 
 m = ["riscv-decoder/m"]
 a = ["riscv-decoder/a"]
+c = ["riscv-decoder/c"]
 zicsr = ["riscv-decoder/zicsr", "zifencei"]
 zifencei = ["riscv-decoder/zifencei"]
 
 s = ["zicsr", "riscv-decoder/s"] # Supervisor
 
-full = ["s", "m", "a", "zicsr", "zifencei"]
+full = ["s", "m", "a", "c", "zicsr", "zifencei"]
 
 [dependencies]
 riscv-decoder = {workspace = true}
