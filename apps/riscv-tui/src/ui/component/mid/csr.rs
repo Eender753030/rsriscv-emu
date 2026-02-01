@@ -3,7 +3,7 @@ use ratatui::layout::Rect;
 use ratatui::style::Style;
 use ratatui::widgets::{Block, HighlightSpacing, List, ListItem};
 
-use crate::state::{EmuState, Selected};
+use crate::state::{DataView, EmuState, Selected};
 use crate::ui::component::{ANTI_FLASH_WHITE, BERKELEY_BLUE, CALIFORNIA_GOLD};
 use crate::ui::component::Component;
 
@@ -15,8 +15,11 @@ pub struct Csr;
 impl Component for Csr {
     fn render(f: &mut Frame, area: Rect, emu: &mut EmuState) {
         let items: Vec<ListItem> = emu.csr.list.iter()
-            .map(|(name, data)| {
-                    ListItem::new(format!("{:<7}: {}", name, data))
+            .map(|(name, data)| {   
+                match emu.data_view {
+                    DataView::Decimal => ListItem::new(format!("{:<7}: {}", name, data)),
+                    DataView::Hex     => ListItem::new(format!("{:<7}: {:#x}", name, data)),
+                }
             }).collect();
 
         let state = &mut emu.csr.list_state;

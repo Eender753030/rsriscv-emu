@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 ### Added
+- **TUI: Decimal/Hex**: Press H to switch Reg / Csr data display.
 - **TUI: Breakpoint**: Implemented breakpoint feature that when running mode encounter breakpoint will stop.
 
 ### Changed

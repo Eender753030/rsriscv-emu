@@ -24,15 +24,15 @@ impl Component for Instruction {
             };
 
             if *addr == emu.pc && emu.mode != EmuMode::Observation {
-                    emu.ins.list_state.select(Some(i));
-                    emu.ins.current_select = i;
+                emu.ins.list_state.select(Some(i));
+                emu.ins.current_select = i;
             }
             ListItem::new(format!("{}{}",breakpoint, ins))
         }).collect();
 
         let state = &mut emu.ins.list_state;
     
-        let hl_color = if emu.selected == Selected::Ins {
+        let hl_color = if emu.selected == Selected::Ins && emu.mode == EmuMode::Observation {
             (ANTI_FLASH_WHITE, BERKELEY_BLUE)
         } else {
             (BERKELEY_BLUE, CALIFORNIA_GOLD)

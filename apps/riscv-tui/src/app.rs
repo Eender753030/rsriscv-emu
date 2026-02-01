@@ -97,8 +97,9 @@ impl EmuApp {
             GoPrev      => self.state.prev(),
             ChangePanel => self.state.change_panel(),
             #[cfg(feature = "zicsr")]
-            ChangeMid => self.state.change_mid(),
-            BreakPoint => self.state.breakpoint(),
+            ChangeMid   => self.state.change_mid(),
+            ChangeView  => self.state.change_view(),
+            BreakPoint  => self.state.breakpoint(),
             _ => {},
         }
     }
@@ -109,6 +110,7 @@ impl EmuApp {
             Quit => self.should_quit = true,
             #[cfg(feature = "zicsr")]
             ChangeMid => self.state.change_mid(),
+            ChangeView  => self.state.change_view(),
             ChangeMode => {
                 self.state.observation_mode_selected();
                 self.state.mode = EmuMode::Observation;

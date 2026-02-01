@@ -14,6 +14,8 @@ pub enum KeyControl {
     Step,
     RunToEnd,
     BreakPoint,
+    SearchMem,
+    ChangeView,
 }
 
 use KeyCode::*;
@@ -27,6 +29,8 @@ pub fn poll_key_event(keycode: KeyCode) -> Option<KeyControl> {
         #[cfg(feature = "zicsr")]
         Char('c' | 'C') => ChangeMid,
         Char('b' | 'B') => BreakPoint,
+        Char('m' | 'M') => SearchMem,
+        Char('h' | 'H') => ChangeView,
         Up              => GoPrev,
         Down            => GoNext,
         Left | Right    => ChangePanel,

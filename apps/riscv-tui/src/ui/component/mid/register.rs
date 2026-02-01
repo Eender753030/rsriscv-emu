@@ -3,7 +3,7 @@ use ratatui::layout::Rect;
 use ratatui::style::Style;
 use ratatui::widgets::{Block, HighlightSpacing, List, ListItem};
 
-use crate::state::{EmuState, Selected};
+use crate::state::{DataView, EmuState, Selected};
 
 use crate::ui::component::{ANTI_FLASH_WHITE, BERKELEY_BLUE, CALIFORNIA_GOLD};
 use crate::ui::component::Component;
@@ -17,7 +17,10 @@ impl Component for Register {
     fn render(f: &mut Frame, area: Rect, emu: &mut EmuState) {
         let items: Vec<ListItem> = emu.reg.list.iter().enumerate()
             .map(|(i, data)| {
-                ListItem::new(format!("x{:<2}: {}", i, data))
+                match emu.data_view {
+                    DataView::Decimal => ListItem::new(format!("x{:<2}: {}", i, data)),
+                    DataView::Hex     => ListItem::new(format!("x{:<2}: {:#x}", i, data))
+                } 
             }).collect();
     
         let state = &mut emu.reg.list_state;

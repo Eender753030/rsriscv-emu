@@ -15,6 +15,13 @@ pub enum Mid {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum DataView {
+    #[default]
+    Decimal,
+    Hex,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Selected {
     #[default]
     Ins,
@@ -42,6 +49,8 @@ pub struct EmuState {
     pub selected: Selected,
     pub mid_selected: Mid,
 
+    pub data_view: DataView,
+
     pub breakpoint_set: HashSet<usize>,
 }
 
@@ -58,13 +67,14 @@ impl EmuState {
         let mode = EmuMode::default();
         let selected = Selected::default();
         let mid_selected = Mid::default();
-        
+        let data_view = DataView::default();
+
         let breakpoint_set = HashSet::new();
 
         EmuState { 
             #[cfg(feature = "zicsr")] csr,
             ins, reg, except, pc, 
-            mode, selected, mid_selected,
+            mode, selected, mid_selected, data_view,
             breakpoint_set
         }
     }
@@ -124,6 +134,14 @@ impl EmuState {
             self.selected = Selected::Mid(self.mid_selected)
         } 
     }
+
+    pub fn change_view(&mut self) {
+        self.data_view = match self.data_view {
+            DataView::Decimal => DataView::Hex,
+            DataView::Hex     => DataView::Decimal,
+        };
+    }
+
 
     pub fn breakpoint(&mut self) {
         if !self.breakpoint_set.remove(&self.ins.current_select) {
