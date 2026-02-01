@@ -9,8 +9,8 @@ use crate::state::{EmuState, EmuMode, Mid};
 use super::component::*;
 
 const HEADER: &str = concat!("RsRisc-V Emulator v", env!("CARGO_PKG_VERSION"));
-const OBSERVATION_HINT_MESSAGE: &str = "Q: Leave    TAB: Switch mode    Up/Down: Scroll    Left/Right: Change panel ]/[: Change Dram page";
-const EMULATE_HINT_MESSAGE: &str = "Q: Leave   TAB: Change mode    S: Single step    P: Run to end / Stop    R: Reset";
+const OBSERVATION_HINT_MESSAGE: &str = "(Q) Leave    (TAB) Switch mode    (↑/↓) Scroll    (←/→) Change panel";
+const EMULATE_HINT_MESSAGE: &str = "(Q) Leave   (TAB) Change mode    (S) Single step    (P) Run to end / Stop    (R) Reset";
 
 pub fn ui(f: &mut Frame, emu_state: &mut EmuState) {
     let main_layout = Layout::vertical([
@@ -23,7 +23,7 @@ pub fn ui(f: &mut Frame, emu_state: &mut EmuState) {
     render_content(f, main_layout[1], emu_state);
     match emu_state.mode {
         EmuMode::Observation => render_paragraph(f, main_layout[2], OBSERVATION_HINT_MESSAGE),
-        EmuMode::Stay | EmuMode::Running => render_paragraph(f, main_layout[2], EMULATE_HINT_MESSAGE)
+        EmuMode::Stay | EmuMode::Running => render_paragraph(f, main_layout[2], EMULATE_HINT_MESSAGE),
     }
 }
 
@@ -57,9 +57,8 @@ fn render_content(f: &mut Frame, area: Rect, emu: &mut EmuState) {
     ]).split(area);
     
     let info_layout = Layout::horizontal([
-        Constraint::Percentage(45),
-        Constraint::Percentage(20),
-        Constraint::Percentage(35),
+        Constraint::Percentage(70),
+        Constraint::Percentage(30),
     ]).split(layout[0]);
 
     Instruction::render(f, info_layout[0], emu);
@@ -68,6 +67,5 @@ fn render_content(f: &mut Frame, area: Rect, emu: &mut EmuState) {
         #[cfg(feature = "zicsr")]
         Mid::Csr => Csr::render(f, info_layout[1], emu),
     }
-    Memory::render(f, info_layout[2], emu);
     Exception::render(f, layout[1], emu);
 }

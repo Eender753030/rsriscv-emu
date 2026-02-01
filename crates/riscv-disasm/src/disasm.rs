@@ -21,15 +21,17 @@ pub fn disassembler(info: &LoadInfo) -> Vec<(u32, String)> {
             
                 let mut lines = Vec::new();
 
-                if let Some(sym) = sym_table.get(&curr_addr) {
-                    lines.push((curr_addr, format!("{}:", sym)));
-                }
+                let label = if let Some(sym) = sym_table.get(&curr_addr) {
+                    format!("<{}>:\n ", sym)
+                } else {
+                    String::new()
+                };
 
                 let body = decode(raw)
                     .map(|ins| ins_to_string(ins, curr_addr, sym_table))
                     .unwrap_or_else(|_| format!("(Unknown) {:010x}", raw));
                 
-                lines.push((curr_addr, format!("    {:#010x}: {}", curr_addr, body)));
+                lines.push((curr_addr, format!("{}{:#010x}: {}",label, curr_addr, body)));
                 
                 lines
             })
@@ -51,7 +53,7 @@ pub fn disassembler(info: &LoadInfo) -> Vec<(u32, String)> {
             let curr_addr = base_addr + offset as u32;
 
             if offset + 2 > len {
-                res.push((curr_addr, format!("    {:#010x}: (Incomplete)", curr_addr)));
+                res.push((curr_addr, format!("{:#010x}: (Incomplete)", curr_addr)));
                 break;
             }
 
@@ -68,7 +70,7 @@ pub fn disassembler(info: &LoadInfo) -> Vec<(u32, String)> {
                 (2, body)
             } else {
                 if offset + 4 > len {
-                    res.push((curr_addr, format!("    {:#010x}: (Incomplete)", curr_addr)));
+                    res.push((curr_addr, format!("{:#010x}: (Incomplete)", curr_addr)));
                     break;
                 }
 
@@ -84,10 +86,12 @@ pub fn disassembler(info: &LoadInfo) -> Vec<(u32, String)> {
 
             let mut lines = Vec::new();
 
-            if let Some(sym) = sym_table.get(&curr_addr) {
-                lines.push((curr_addr, format!("{}:", sym)));
-            }
-            lines.push((curr_addr, format!("    {:#010x}: {}", curr_addr, body)));
+            let label = if let Some(sym) = sym_table.get(&curr_addr) {
+                format!("{:#010x} <{}>:\n ",curr_addr, sym)
+            } else {
+                String::new()
+            };
+            lines.push((curr_addr, format!("{}{:#010x}: {}",label, curr_addr, body)));
 
             res.extend(lines);
 
@@ -124,9 +128,9 @@ mod tests {
 
         let output = disassembler(&info);
 
-        assert!(output[0].1.contains(&"main:".to_string()));
-        assert!(output[1].1.contains("addi    x10, x0, 0"));
-        assert!(output[2].1.contains("ecall"));
+        assert!(output[0].1.contains("<main>:"));
+        assert!(output[0].1.contains("addi    x10, x0, 0"));
+        assert!(output[1].1.contains("ecall"));
     }
 
     #[test]
@@ -149,10 +153,10 @@ mod tests {
         info.symbols = Some(syms);
 
         let output = disassembler(&info);
-
-        assert!(output[0].1.contains(&"main:".to_string()));
-        assert!(output[1].1.contains("(C) addi    x2, x2, -16"));
-        assert!(output[2].1.contains("ecall"));
-        assert!(output[3].1.contains("(C) ebreak"));
+        
+        assert!(output[0].1.contains("<main>:"));
+        assert!(output[0].1.contains("(C) addi    x2, x2, -16"));
+        assert!(output[1].1.contains("ecall"));
+        assert!(output[2].1.contains("(C) ebreak"));
     }
 }
