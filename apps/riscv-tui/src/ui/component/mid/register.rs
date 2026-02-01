@@ -15,7 +15,7 @@ pub struct Register;
 
 impl Component for Register {
     fn render(f: &mut Frame, area: Rect, emu: &mut EmuState) {
-        let items: Vec<ListItem> = emu.reg.list.iter().enumerate()
+        let items: Vec<ListItem> = emu.mach_snap.reg.list.iter().enumerate()
             .map(|(i, data)| {
                 match emu.data_view {
                     DataView::Decimal => ListItem::new(format!("x{:<2}: {}", i, data)),
@@ -23,7 +23,7 @@ impl Component for Register {
                 } 
             }).collect();
     
-        let state = &mut emu.reg.list_state;
+        let state = &mut emu.mach_snap.reg.list_state;
         
         let hl_color = if matches!(emu.selected, Selected::Mid(_)) {
             (ANTI_FLASH_WHITE, BERKELEY_BLUE)

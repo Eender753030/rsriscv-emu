@@ -14,7 +14,7 @@ pub struct Instruction;
 
 impl Component for Instruction {
     fn render(f: &mut Frame, area: Rect, emu: &mut EmuState) {
-        let items: Vec<ListItem> = emu.ins.list.iter().enumerate()
+        let items: Vec<ListItem> = emu.mach_snap.ins.list.iter().enumerate()
             .map(|(i, (addr, ins))| {
 
             let breakpoint = if emu.breakpoint_set.contains(&i) {
@@ -23,14 +23,14 @@ impl Component for Instruction {
                 " "
             };
 
-            if *addr == emu.pc && emu.mode != EmuMode::Observation {
-                emu.ins.list_state.select(Some(i));
-                emu.ins.current_select = i;
+            if *addr == emu.mach_snap.pc && emu.mode != EmuMode::Observation {
+                emu.mach_snap.ins.list_state.select(Some(i));
+                emu.mach_snap.ins.current_select = i;
             }
             ListItem::new(format!("{}{}",breakpoint, ins))
         }).collect();
 
-        let state = &mut emu.ins.list_state;
+        let state = &mut emu.mach_snap.ins.list_state;
     
         let hl_color = if emu.selected == Selected::Ins && emu.mode == EmuMode::Observation {
             (ANTI_FLASH_WHITE, BERKELEY_BLUE)

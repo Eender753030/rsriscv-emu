@@ -14,7 +14,7 @@ pub struct Csr;
 
 impl Component for Csr {
     fn render(f: &mut Frame, area: Rect, emu: &mut EmuState) {
-        let items: Vec<ListItem> = emu.csr.list.iter()
+        let items: Vec<ListItem> = emu.mach_snap.csr.list.iter()
             .map(|(name, data)| {   
                 match emu.data_view {
                     DataView::Decimal => ListItem::new(format!("{:<7}: {}", name, data)),
@@ -22,7 +22,7 @@ impl Component for Csr {
                 }
             }).collect();
 
-        let state = &mut emu.csr.list_state;
+        let state = &mut emu.mach_snap.csr.list_state;
         let hl_color = if matches!(emu.selected, Selected::Mid(_)) {
             (ANTI_FLASH_WHITE, BERKELEY_BLUE)
         } else {

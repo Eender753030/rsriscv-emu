@@ -1,68 +1,30 @@
 mod list_state;
+mod mode;
+mod snapshot;
 
 use std::collections::HashSet;
 
-use riscv_core::Exception;
 use riscv_core::debug::DebugInterface;
 
-use list_state::ListStateRecord;
+use snapshot::MachineSnapshot;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum Mid {
-    #[default]
-    Reg,
-    #[cfg(feature = "zicsr")] Csr,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum DataView {
-    #[default]
-    Decimal,
-    Hex,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum Selected {
-    #[default]
-    Ins,
-    Mid(Mid),
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum EmuMode {
-    #[default]
-    Observation,
-    Stay,
-    Running,
-}
+pub use mode::{DataView, EmuMode, Mid, Selected};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct EmuState {
-    pub ins: ListStateRecord<(u32, String)>,
-    pub reg: ListStateRecord<u32>,
-    #[cfg(feature = "zicsr")]
-    pub csr: ListStateRecord<(String, u32)>,
-    pub pc: u32,
-    pub except: String,
+    pub mach_snap: MachineSnapshot,
 
     pub mode: EmuMode,
     pub selected: Selected,
     pub mid_selected: Mid,
-
     pub data_view: DataView,
 
     pub breakpoint_set: HashSet<usize>,
 }
 
 impl EmuState {
-    pub fn new<D: DebugInterface>(machine: &D, ins_list: Vec<(u32, String)>) -> Self {
-        let ins = ListStateRecord::new(ins_list);
-        let reg = ListStateRecord::new(machine.inspect_regs().into_iter().collect());
-        #[cfg(feature = "zicsr")]
-        let csr = ListStateRecord::new(machine.inspect_csrs());
-
-        let except = "".to_string();
-        let pc = machine.inspect_pc();
+    pub fn new<D: DebugInterface>(mach: &D, ins_list: Vec<(u32, String)>) -> Self {
+        let mach_snap = MachineSnapshot::new(mach, ins_list);
 
         let mode = EmuMode::default();
         let selected = Selected::default();
@@ -72,27 +34,14 @@ impl EmuState {
         let breakpoint_set = HashSet::new();
 
         EmuState { 
-            #[cfg(feature = "zicsr")] csr,
-            ins, reg, except, pc, 
+            mach_snap,
             mode, selected, mid_selected, data_view,
             breakpoint_set
         }
     }
 
-    pub fn update_data<D: DebugInterface>(&mut self, machine: &D) {
-        self.reg.list = machine.inspect_regs().into_iter().collect();
-        #[cfg(feature = "zicsr")] {
-        self.csr.list = machine.inspect_csrs();
-        }
-        self.pc = machine.inspect_pc();
-    }
-
-    pub fn update_exception(&mut self, except: Exception) {
-        self.except = except.to_string()
-    }
-
     pub fn observation_mode_selected(&mut self) {
-        self.ins.select_curr()
+        self.mach_snap.ins.select_curr()
     }
 
     pub fn change_panel(&mut self) {  
@@ -104,22 +53,32 @@ impl EmuState {
     
     pub fn next(&mut self) {  
         match self.selected {
-            Selected::Ins => self.ins.next(self.ins.list.len()),
+            Selected::Ins => self.mach_snap.ins
+                .next(self.mach_snap.ins.list.len()),
+
             Selected::Mid(m) => match m {
-                Mid::Reg => self.reg.next(self.reg.list.len()),
+                Mid::Reg => self.mach_snap.reg
+                    .next(self.mach_snap.reg.list.len()),
+
                 #[cfg(feature = "zicsr")]
-                Mid::Csr => self.csr.next(self.csr.list.len()),
+                Mid::Csr => self.mach_snap.csr.
+                    next(self.mach_snap.csr.list.len()),
             },
         }
     }
     
     pub fn prev(&mut self) {
         match self.selected {
-            Selected::Ins => self.ins.prev(self.ins.list.len()),
+            Selected::Ins => self.mach_snap.ins
+                .prev(self.mach_snap.ins.list.len()),
+
             Selected::Mid(m) => match m {
-                Mid::Reg => self.reg.prev(self.reg.list.len()),
+                Mid::Reg => self.mach_snap.reg
+                    .prev(self.mach_snap.reg.list.len()),
+                    
                 #[cfg(feature = "zicsr")]
-                Mid::Csr => self.csr.prev(self.csr.list.len()),
+                Mid::Csr => self.mach_snap.csr
+                    .prev(self.mach_snap.csr.list.len()),
             },
         }
     }
@@ -144,8 +103,10 @@ impl EmuState {
 
 
     pub fn breakpoint(&mut self) {
-        if !self.breakpoint_set.remove(&self.ins.current_select) {
-            self.breakpoint_set.insert(self.ins.current_select);
+        if !self.breakpoint_set
+            .remove(&self.mach_snap.ins.current_select) {
+            self.breakpoint_set
+                .insert(self.mach_snap.ins.current_select);
         }
     }
 }
