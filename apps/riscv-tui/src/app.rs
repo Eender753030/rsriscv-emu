@@ -1,155 +1,110 @@
-use std::time::Duration;
+mod key;
+
+use std::sync::mpsc::{self, Receiver};
 
 use anyhow::Result;
 
 use riscv_core::RiscV;
 #[cfg(not(feature = "zicsr"))]
 use riscv_core::RiscVError;
+use riscv_core::debug::DebugInterface;
 use riscv_disasm::disasm;
 use riscv_loader::LoadInfo;
 
 use crate::event::{self, EmuEvent};
-use crate::state::{EmuMode, EmuState};
-use crate::terminal::EmuTerminal;
-use crate::ui::render;
 use crate::event::key::KeyControl;
+use crate::state::{EmuMode, EmuState};
+use crate::ui;
+use crate::ui::terminal::EmuTerminal;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub struct EmuApp {
-    machine: RiscV,
+    mach: RiscV,
     info: LoadInfo,
     state: EmuState,
     should_quit: bool,
+    event_rx: Receiver<EmuEvent>,
 }
 
 impl EmuApp {
     pub fn new(info: LoadInfo) -> Result<Self> {
-        let mut machine = RiscV::default();
-        machine.load_info(&info)?;
+        let mut mach = RiscV::default();
+        mach.load_info(&info)?;
 
         let ins_list = disasm::disassembler(&info);
+        let state = EmuState::new(&mach, ins_list);
+        
 
-        let ins_len: usize = info.code.iter()
-            .map(|(code, _)| code.len() / 4).sum();
+        let (event_tx, event_rx) = mpsc::channel::<EmuEvent>();
+        event::spawn_event_thread(event_tx);
 
-        let state = EmuState::new(&machine, ins_len, ins_list);
-
-        Ok(EmuApp { machine, info, state, should_quit: false })
+        Ok(EmuApp { 
+            mach, info, state, 
+            should_quit: false, event_rx 
+        })
     }
 
     pub fn run(&mut self) -> Result<()> { 
         let mut t = EmuTerminal::new()?;
     
         while !self.should_quit {
-            t.draw(render::ui, &mut self.state)?;
+            t.draw(ui::ui, &mut self.state)?;
             
-            self.event()?;
-
-            if self.state.mode == EmuMode::Running {
-                #[cfg(not(feature = "zicsr"))]
-                if self.step().is_err() {
-                    self.state.mode = EmuMode::Stay 
-                }
-                #[cfg(feature = "zicsr")]
-                self.step()?;
-            }
+            self.event()?;    
         }
         Ok(())
     }
 
     fn step(&mut self) -> Result<()> {
-        if let Some(except) = self.machine.step()? {
-            self.state.update_exception(except);
+        if let Some(except) = self.mach.step()? {
+            self.state.mach_snap.update_exception(except);
             #[cfg(not(feature = "zicsr"))]
             return Err(anyhow::Error::new(RiscVError::Exception));
         }
-        self.state.update_data(&self.machine);
+        self.state.mach_snap.update_snapshot(&self.mach);
         Ok(())
     }
 
     fn event(&mut self) -> Result<()> {
-        let duration = Duration::from_millis(
-            match self.state.mode {
-                EmuMode::Running => 16,
-                _ => 100,
-            }
-        );
-
-        match event::poll_event(duration)? {
+        match self.event_rx.recv()? {
             EmuEvent::Key(key) => {
-                match self.state.mode {
-                    EmuMode::Observation => self.key_observation(key),
-                    EmuMode::Stay => self.key_stay(key)?,
-                    EmuMode::Running => self.key_running(key),
+                match key {
+                    KeyControl::Normal(key) => match self.state.mode {
+                        EmuMode::Observation => self.key_observation(key),
+                        EmuMode::Stay        => self.key_stay(key)?,
+                        EmuMode::Running     => self.key_running(key),
+                        EmuMode::BusPopup    => self.key_popup(key),
+                    },
+                    KeyControl::Edit(key) => self.key_editting(key),
                 }
+                
             },
             EmuEvent::Resize(_, _) => {},
-            EmuEvent::None => {},
-        }
-
-        
-        Ok(())
-    }
-
-    fn key_observation(&mut self, key: KeyControl) {
-        use KeyControl::*;
-        match key {
-            Quit => self.should_quit = true,
-            ChangeMode => {
-                self.state.running_mode_selected();
-                self.state.mode = EmuMode::Stay;
-            }
-            GoNext => self.state.next(),
-            GoPrev => self.state.prev(),
-            GoLeft => self.state.go_left(),
-            GoRight => self.state.go_right(),
-            NextPage => self.state.next_page(&self.machine),
-            PrevPage => self.state.prev_page(&self.machine),
-            #[cfg(feature = "zicsr")]
-            ChangeMid => self.state.change_mid(),
-            _ => {},
-        }
-    }
-
-    fn key_stay(&mut self, key: KeyControl) -> Result<()> {
-        use KeyControl::*;
-        match key {
-            Quit => self.should_quit = true,
-            #[cfg(feature = "zicsr")]
-            ChangeMid => self.state.change_mid(),
-            ChangeMode => {
-                self.state.observation_mode_selected();
-                self.state.mode = EmuMode::Observation;
-            },
-            Reset => {
-                self.machine.reset();
-                self.machine.load_info(&self.info)?;
-                self.state.update_data(&self.machine);
-                self.state.except = "".to_string();
-            },
-            Step     => {
-                #[cfg(not(feature = "zicsr"))]
-                if self.step().is_err() {
+            EmuEvent::Tick => {
+                if self.state.mode == EmuMode::Running {
+                    if self.state.breakpoint_set
+                        .contains(&self.state.mach_snap.ins.current_select) {
+                        self.state.mode = EmuMode::Stay 
+                    } else {
+                        #[cfg(not(feature = "zicsr"))]
+                        if self.step().is_err() {
+                            self.state.mode = EmuMode::Stay 
+                        }
+                        #[cfg(feature = "zicsr")]
+                        self.step()?;
+                    }
                 }
-                #[cfg(feature = "zicsr")]
-                self.step()?
             }
-            RunToEnd => self.state.mode = EmuMode::Running,
-            _ => {},
         }
         Ok(())
     }
 
-    fn key_running(&mut self, key: KeyControl) {
-        use KeyControl::*;
-        match key {
-            Quit => self.should_quit = true,
-            RunToEnd => self.state.mode = EmuMode::Stay,
-            ChangeMode => {
-                self.state.observation_mode_selected();
-                self.state.mode = EmuMode::Observation;
-            },
-            _ => {},
+    pub fn receive_bus_address(&mut self) {
+        if let Some(addr) = self.state.input.submit() {
+            self.state.temp_bus_view = 
+            Some((addr, self.mach.inspect_bus(addr, 68)));
         }
+        self.state.mode.popup();
+        self.state.show_bus_popup = true;
     }
 }

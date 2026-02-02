@@ -1,9 +1,8 @@
 mod app;
 mod cli;
-mod error;
 mod event;
+mod input;
 mod state;
-mod terminal;
 mod ui;
 
 use anyhow::Result;
@@ -21,7 +20,7 @@ fn main() -> Result<()> {
 
     let mut app = EmuApp::new(info)?;
     
-    // Go into the TUI display loop
+    // Go into the TUI app loop
     app.run()?;
 
     Ok(())

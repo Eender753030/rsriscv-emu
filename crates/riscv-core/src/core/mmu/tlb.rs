@@ -144,6 +144,10 @@ impl Tlb {
                 }
             }); 
     }
+
+    pub fn reset(&mut self) {
+        self.flush_all();
+    }
 }
 
 impl Default for TlbEntry {

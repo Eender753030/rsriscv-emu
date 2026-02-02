@@ -1,6 +1,17 @@
 use std::env;
 
-use crate::error::CliError;
+use thiserror::Error;
+
+const USAGE: &str = "Usage: cargo run <.elf>";
+
+#[derive(Error, Debug)]
+pub enum CliError {
+    #[error("No input file\n{}", USAGE)]
+    NoInputFile,
+
+    #[error("Too many input file\n{}", USAGE)]
+    TooManyArgument,
+}
 
 /// Load CLI argument from `env::args().skip(1)`. Only accept one binary file for now.
 /// ## Example
