@@ -13,8 +13,8 @@ use tlb::{Tlb, TlbResult};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Mmu {
     tlb: Tlb,
-    hit_count: usize,
-    miss_count: usize,
+    pub hit_count: usize,
+    pub miss_count: usize,
 }
 
 impl Mmu {
@@ -145,6 +145,12 @@ impl Mmu {
     pub fn flush_tlb(&mut self, v_addr: u32, asid: u32) {
         let vpn = v_addr >> 12; 
         self.tlb.flush(vpn, asid as u16);
+    }
+
+    pub fn reset(&mut self) {
+        self.tlb.reset();
+        self.hit_count = 0;
+        self.miss_count = 0;
     }
 }
 

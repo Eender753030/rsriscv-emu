@@ -26,7 +26,7 @@ pub fn run_test_file(path: &Path) {
         machine.step().expect(&format!("CPU Fault at cycle {}", cycle));
 
         // Check tohost
-        let mem_bytes = machine.inspect_mem(tohost_addr, 4);
+        let mem_bytes = machine.inspect_bus(tohost_addr, 4);
         let val = u32::from_le_bytes(mem_bytes.try_into().unwrap());
 
         if val != 0 {

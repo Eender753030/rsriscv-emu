@@ -1,6 +1,15 @@
 # Changelog
 
-## [Unreleased]
+## [0.4.0] - 2026-02-02
+### Added
+- **TUI: Bus Search**: In Observation mode, press V can enter bus address and then show 68 bytes in hex.
+- **TUI: Popup Information**: Press I to show basic information like Dram base, size, page size, hit rate, current PC, and current privilege mode.
+- **TUI: Decimal/Hex**: Press H to switch Reg / Csr data display.
+- **TUI: Breakpoint**: Implemented breakpoint feature that when running mode encounter breakpoint will stop.
+
+### Changed
+- Removed TUI's memory view and refactor the display.
+- Refactored event handle with mpsc that let new thread to send event.
 
 ## [0.3.0] - 2026-01-31
 ### Added
@@ -13,7 +22,7 @@
 - **S-Mode Tests**: Added some intergration tests from `rv32si-p`, from offical `riscv-tests` .
 
 ### Changed
-- Refactor `riscv-tui` project architecture.
+- Refactored `riscv-tui` project architecture.
 - Disasm now return `Vec<(u32, String)>` that can make TUI PC pointer work easier.
 
 ### Fixed

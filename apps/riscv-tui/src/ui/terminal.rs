@@ -15,6 +15,7 @@ use crate::state::EmuState;
 
 type TerminalCross = Terminal<CrosstermBackend<io::Stdout>>;
 
+#[derive(Debug)]
 pub struct EmuTerminal {
     terminal: TerminalCross
 }

@@ -3,9 +3,9 @@ use ratatui::layout::Rect;
 use ratatui::style::Style;
 use ratatui::widgets::{Block, Paragraph};
 
-use crate::ui::component::Component;
 use crate::state::EmuState;
-use super::{BERKELEY_BLUE, CALIFORNIA_GOLD};
+use crate::ui::component::Component;
+use crate::ui::{BERKELEY_BLUE, CALIFORNIA_GOLD};
 
 const EXCEPTION_TITLE: &str = "Code: Exception";
 
@@ -14,7 +14,7 @@ pub struct Exception;
 
 impl Component for Exception {
     fn render(f: &mut Frame, area: Rect, emu: &mut EmuState) {
-        let paragraph = Paragraph::new(emu.except.to_string())
+        let paragraph = Paragraph::new(emu.mach_snap.except.to_string())
             .block(Block::bordered().title(EXCEPTION_TITLE))
             .style(Style::default().bg(BERKELEY_BLUE).fg(CALIFORNIA_GOLD));
         
