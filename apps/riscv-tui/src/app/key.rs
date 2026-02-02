@@ -20,7 +20,9 @@ impl EmuApp {
             #[cfg(feature = "zicsr")]
             ChangeMid   => self.state.change_mid(),
             ChangeView  => self.state.change_view(),
-            BreakPoint  => self.state.breakpoint(),
+            BreakPoint  => if self.state.selected == Selected::Ins {
+                self.state.breakpoint()
+            },
             SearchBus   => {
                 self.state.show_search_popup = true;
                 self.state.input.mode.edit();

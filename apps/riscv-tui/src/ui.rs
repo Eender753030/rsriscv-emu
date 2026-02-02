@@ -16,8 +16,8 @@ use component::*;
 use popup::*;
 
 const HEADER: &str = concat!("RsRisc-V Emulator v", env!("CARGO_PKG_VERSION"));
-const OBSERVATION_HINT_MESSAGE: &str = "(Q) Leave  (TAB) Switch mode  (V) Bus Search  (↑/↓) Scroll  (←/→) Change panel";
-const EMULATE_HINT_MESSAGE: &str = "(Q) Leave  (TAB) Change mode  (S) Single step  (P) Run to end / Stop  (R) Reset";
+const OBSERVATION_HINT_MESSAGE: &str = "(Q) Leave  (TAB) Change mode  (I) Information  (↑/↓) Scroll  (←/→) Change panel  (B) Breakpoint  (V) Bus Search";
+const EMULATE_HINT_MESSAGE: &str = "(Q) Leave  (TAB) Change mode  (I) Information  (↑/↓) Scroll  (S) Single step  (P) Run/Stop  (R) Reset";
 
 pub(crate) const ANTI_FLASH_WHITE: Color = Color::Rgb(242, 242, 242);
 pub(crate) const BERKELEY_BLUE: Color = Color::Rgb(0, 50, 98);
