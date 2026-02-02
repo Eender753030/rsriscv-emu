@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.4.0] - 2026-02-02
 ### Added
 - **TUI: Bus Search**: In Observation mode, press V can enter bus address and then show 68 bytes in hex.
 - **TUI: Popup Information**: Press I to show basic information like Dram base, size, page size, hit rate, current PC, and current privilege mode.
