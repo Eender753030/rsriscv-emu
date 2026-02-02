@@ -1,6 +1,7 @@
 mod app;
 mod cli;
 mod event;
+mod input;
 mod state;
 mod ui;
 

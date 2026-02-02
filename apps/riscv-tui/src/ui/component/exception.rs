@@ -5,7 +5,7 @@ use ratatui::widgets::{Block, Paragraph};
 
 use crate::state::EmuState;
 use crate::ui::component::Component;
-use super::{BERKELEY_BLUE, CALIFORNIA_GOLD};
+use crate::ui::{BERKELEY_BLUE, CALIFORNIA_GOLD};
 
 const EXCEPTION_TITLE: &str = "Code: Exception";
 

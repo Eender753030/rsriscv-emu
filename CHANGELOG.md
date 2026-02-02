@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 ### Added
+- **TUI: Bus Search**: In Observation mode, press V can enter bus address and then show 68 bytes in hex.
+- **TUI: Popup Information**: Press I to show basic information like Dram base, size, page size, hit rate, and current PC.
 - **TUI: Decimal/Hex**: Press H to switch Reg / Csr data display.
 - **TUI: Breakpoint**: Implemented breakpoint feature that when running mode encounter breakpoint will stop.
 

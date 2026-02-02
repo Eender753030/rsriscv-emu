@@ -13,8 +13,8 @@ use tlb::{Tlb, TlbResult};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Mmu {
     tlb: Tlb,
-    hit_count: usize,
-    miss_count: usize,
+    pub hit_count: usize,
+    pub miss_count: usize,
 }
 
 impl Mmu {

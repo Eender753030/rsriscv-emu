@@ -8,7 +8,11 @@ use anyhow::Result;
 
 use crossterm::event::{self, Event, KeyEvent};
 
-use key::{KeyControl, poll_key_event};
+use key::{get_normal_key, get_edit_key};
+use key::{KeyControl, EditKeyControl, NormalKeyControl};
+
+use crate::state::EmuMode;
+use crate::input::InputMode;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EmuEvent {
@@ -19,16 +23,41 @@ pub enum EmuEvent {
 
 pub fn spawn_event_thread(tx: Sender<EmuEvent>) {
     thread::spawn(move || -> Result<()> {
+        let mut input_mode = InputMode::default();
+        let mut emu_mode = EmuMode::default();
         loop {
             let timeout = Duration::from_millis(100);
 
             if event::poll(timeout)? {
                 match event::read()? {
                     Event::Key(KeyEvent{code, ..}) => {
-                        if let Some(key) = poll_key_event(code) {
-                            tx.send(EmuEvent::Key(key))?;
-                        }  
-                    }
+                        match input_mode {
+                            InputMode::Normal => {
+                                if let Some(key) = get_normal_key(code) {
+                                    match key {
+                                        NormalKeyControl::ChangeMode => {
+                                            emu_mode.change_mode();
+                                        },
+                                        NormalKeyControl::SearchBus => {
+                                            if emu_mode == EmuMode::Observation {
+                                                input_mode.edit();
+                                            }
+                                        },
+                                        _ => {},
+                                    }
+                                    tx.send(EmuEvent::Key(KeyControl::Normal(key)))?;
+                                }  
+                            },
+                            InputMode::Editting => {
+                                if let Some(key) = get_edit_key(code) {
+                                    if matches!(key, EditKeyControl::Exit | EditKeyControl::Enter) {
+                                        input_mode = InputMode::Normal;
+                                    }
+                                    tx.send(EmuEvent::Key(KeyControl::Edit(key)))?;
+                                }  
+                            },
+                        }
+                    },
                     Event::Resize(x, y) => tx.send(EmuEvent::Resize(x, y))?,
                     _ => {},
                 }

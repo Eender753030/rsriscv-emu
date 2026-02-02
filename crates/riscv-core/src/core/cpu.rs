@@ -1,3 +1,5 @@
+mod debug;
+
 use riscv_decoder::prelude::*;
 
 use riscv_loader::LoadInfo;
@@ -12,7 +14,7 @@ use crate::core::privilege::PrivilegeMode;
 use crate::core::access::{Access, AccessType};
 use crate::device::bus::SystemBus;
 use crate::device::Device;
-use crate::debug::*;
+
 
 use super::{PC, RegisterFile};
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -215,35 +217,6 @@ impl Cpu {
             self.mode = PrivilegeMode::default();
             self.csrs.reset();
         }
-    }
-}
-
-impl DebugInterface for Cpu {
-    fn inspect_regs(&self) -> [u32; 32] {
-        self.regs.inspect()
-    }
-
-    fn inspect_pc(&self) -> u32 {
-        self.pc.get()
-    }
-
-    #[cfg(feature = "zicsr")]
-    fn inspect_csrs(&self) -> Vec<(String, u32)> {
-        self.csrs.inspect()
-    }
-
-    fn inspect_mem(&self, addr: u32, len: usize) -> Vec<u8> {
-        let mut mem: Vec<u8> = vec![0; len]; 
-        // Todo: The execption debuger layout
-        let access = Access::new(addr, AccessType::Load);
-        let _ = self.bus.read_bytes(access, len, &mut mem);
-        mem
-    }    
-
-    fn get_info(&self) -> MachineInfo {
-        let (dram_size, dram_base, page_size) = self.bus.ram_info();
-
-        MachineInfo::new(dram_size, dram_base, page_size)
     }
 }
 

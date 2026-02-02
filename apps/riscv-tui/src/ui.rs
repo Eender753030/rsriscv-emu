@@ -1,35 +1,57 @@
+mod component;
+mod popup;
+
+pub mod terminal;
+
 use ratatui::{
-    Frame,
-    layout::{Layout, Rect, Constraint, Alignment},
+    Frame, 
+    layout::{Alignment, Constraint, Layout, Rect},
+    style::{Style, Color},
     widgets::{Block, Paragraph},
-    style::Style,  
 };
 
 use crate::state::{EmuState, EmuMode, Mid};
-use super::component::*;
+
+use component::*;
+use popup::*;
 
 const HEADER: &str = concat!("RsRisc-V Emulator v", env!("CARGO_PKG_VERSION"));
-const OBSERVATION_HINT_MESSAGE: &str = "(Q) Leave    (TAB) Switch mode    (↑/↓) Scroll    (←/→) Change panel";
-const EMULATE_HINT_MESSAGE: &str = "(Q) Leave   (TAB) Change mode    (S) Single step    (P) Run to end / Stop    (R) Reset";
+const OBSERVATION_HINT_MESSAGE: &str = "(Q) Leave  (TAB) Switch mode  (V) Bus Search  (↑/↓) Scroll  (←/→) Change panel";
+const EMULATE_HINT_MESSAGE: &str = "(Q) Leave  (TAB) Change mode  (S) Single step  (P) Run to end / Stop  (R) Reset";
 
-pub fn ui(f: &mut Frame, emu_state: &mut EmuState) {
+pub(crate) const ANTI_FLASH_WHITE: Color = Color::Rgb(242, 242, 242);
+pub(crate) const BERKELEY_BLUE: Color = Color::Rgb(0, 50, 98);
+pub(crate) const CALIFORNIA_GOLD: Color = Color::Rgb(253, 181, 21);
+
+pub fn ui(f: &mut Frame, emu: &mut EmuState) {
     let main_layout = Layout::vertical([
         Constraint::Length(3),
         Constraint::Min(0),
         Constraint::Length(3),
     ]).split(f.area());
 
-    render_header(f, main_layout[0], emu_state);
-    render_content(f, main_layout[1], emu_state);
-    match emu_state.mode {
-        EmuMode::Observation => render_paragraph(f, main_layout[2], OBSERVATION_HINT_MESSAGE),
+    
+    render_header(f, main_layout[0], emu);
+    render_content(f, main_layout[1], emu);
+    match emu.mode {
+        EmuMode::Observation | EmuMode::BusPopup => render_paragraph(f, main_layout[2], OBSERVATION_HINT_MESSAGE),
         EmuMode::Stay | EmuMode::Running => render_paragraph(f, main_layout[2], EMULATE_HINT_MESSAGE),
     }
+
+    if emu.show_info_popup {
+        info::render_popup(f, emu);
+    }
+    if emu.show_search_popup {
+        search::render_popup(f, emu);
+    } 
+    if emu.show_bus_popup {
+        bus::render_popup(f, emu);
+    } 
 }
 
-fn render_header(f: &mut Frame, area: Rect, emu_state: &EmuState) {
-    let message = match emu_state.mode {
-        EmuMode::Observation => "Observation Mode",
+fn render_header(f: &mut Frame, area: Rect, emu: &EmuState) {
+    let message = match emu.mode {
+        EmuMode::Observation | EmuMode::BusPopup => "Observation Mode",
         EmuMode::Stay | EmuMode::Running => "Emulate Mode"
     };
     

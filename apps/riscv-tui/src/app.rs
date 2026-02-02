@@ -7,12 +7,14 @@ use anyhow::Result;
 use riscv_core::RiscV;
 #[cfg(not(feature = "zicsr"))]
 use riscv_core::RiscVError;
+use riscv_core::debug::DebugInterface;
 use riscv_disasm::disasm;
 use riscv_loader::LoadInfo;
 
 use crate::event::{self, EmuEvent};
+use crate::event::key::KeyControl;
 use crate::state::{EmuMode, EmuState};
-use crate::ui::render;
+use crate::ui;
 use crate::ui::terminal::EmuTerminal;
 
 #[derive(Debug)]
@@ -31,18 +33,22 @@ impl EmuApp {
 
         let ins_list = disasm::disassembler(&info);
         let state = EmuState::new(&mach, ins_list);
+        
 
         let (event_tx, event_rx) = mpsc::channel::<EmuEvent>();
         event::spawn_event_thread(event_tx);
 
-        Ok(EmuApp { mach, info, state, should_quit: false, event_rx })
+        Ok(EmuApp { 
+            mach, info, state, 
+            should_quit: false, event_rx 
+        })
     }
 
     pub fn run(&mut self) -> Result<()> { 
         let mut t = EmuTerminal::new()?;
     
         while !self.should_quit {
-            t.draw(render::ui, &mut self.state)?;
+            t.draw(ui::ui, &mut self.state)?;
             
             self.event()?;    
         }
@@ -62,11 +68,16 @@ impl EmuApp {
     fn event(&mut self) -> Result<()> {
         match self.event_rx.recv()? {
             EmuEvent::Key(key) => {
-                match self.state.mode {
-                    EmuMode::Observation => self.key_observation(key),
-                    EmuMode::Stay        => self.key_stay(key)?,
-                    EmuMode::Running     => self.key_running(key),
+                match key {
+                    KeyControl::Normal(key) => match self.state.mode {
+                        EmuMode::Observation => self.key_observation(key),
+                        EmuMode::Stay        => self.key_stay(key)?,
+                        EmuMode::Running     => self.key_running(key),
+                        EmuMode::BusPopup    => self.key_popup(key),
+                    },
+                    KeyControl::Edit(key) => self.key_editting(key),
                 }
+                
             },
             EmuEvent::Resize(_, _) => {},
             EmuEvent::Tick => {
@@ -86,5 +97,14 @@ impl EmuApp {
             }
         }
         Ok(())
+    }
+
+    pub fn receive_bus_address(&mut self) {
+        if let Some(addr) = self.state.input.submit() {
+            self.state.temp_bus_view = 
+            Some((addr, self.mach.inspect_bus(addr, 68)));
+        }
+        self.state.mode.popup();
+        self.state.show_bus_popup = true;
     }
 }

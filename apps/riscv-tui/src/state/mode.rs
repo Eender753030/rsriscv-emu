@@ -25,4 +25,30 @@ pub enum EmuMode {
     Observation,
     Stay,
     Running,
+    BusPopup,
+}
+
+impl EmuMode {
+    pub fn observation(&mut self) {
+        *self = EmuMode::Observation;
+    }
+
+    pub fn stay(&mut self) {
+        *self = EmuMode::Stay;
+    }
+
+    pub fn run(&mut self) {
+        *self = EmuMode::Running;
+    }
+
+    pub fn popup(&mut self) {
+        *self = EmuMode::BusPopup;
+    }
+
+    pub fn change_mode(&mut self) {
+        *self = match self {
+            EmuMode::Observation => EmuMode::Stay,
+            EmuMode::Running | EmuMode::Stay | EmuMode::BusPopup => EmuMode::Observation,
+        }
+    }
 }

@@ -5,7 +5,7 @@ use ratatui::widgets::{Block, HighlightSpacing, List, ListItem};
 
 use crate::state::{EmuMode, EmuState, Selected};
 use crate::ui::component::Component;
-use super::{ANTI_FLASH_WHITE, BERKELEY_BLUE, CALIFORNIA_GOLD};
+use crate::ui::{ANTI_FLASH_WHITE, BERKELEY_BLUE, CALIFORNIA_GOLD};
 
 const INSTRUCTION_TITLE: &str = "Instruction";
 
@@ -23,7 +23,7 @@ impl Component for Instruction {
                 " "
             };
 
-            if *addr == emu.mach_snap.pc && emu.mode != EmuMode::Observation {
+            if *addr == emu.mach_snap.pc && !matches!(emu.mode, EmuMode::Observation | EmuMode::BusPopup) {
                 emu.mach_snap.ins.list_state.select(Some(i));
                 emu.mach_snap.ins.current_select = i;
             }
@@ -32,7 +32,7 @@ impl Component for Instruction {
 
         let state = &mut emu.mach_snap.ins.list_state;
     
-        let hl_color = if emu.selected == Selected::Ins && emu.mode == EmuMode::Observation {
+        let hl_color = if emu.selected == Selected::Ins && matches!(emu.mode, EmuMode::Observation | EmuMode::BusPopup) {
             (ANTI_FLASH_WHITE, BERKELEY_BLUE)
         } else {
             (BERKELEY_BLUE, CALIFORNIA_GOLD)

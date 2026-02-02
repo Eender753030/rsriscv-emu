@@ -5,7 +5,7 @@ use ratatui::widgets::{Block, HighlightSpacing, List, ListItem};
 
 use crate::state::{DataView, EmuState, Selected};
 
-use crate::ui::component::{ANTI_FLASH_WHITE, BERKELEY_BLUE, CALIFORNIA_GOLD};
+use crate::ui::{ANTI_FLASH_WHITE, BERKELEY_BLUE, CALIFORNIA_GOLD};
 use crate::ui::component::Component;
 use super::MID_TITLE;
 
