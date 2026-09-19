@@ -27,7 +27,7 @@
     - **Raw Binary**: Fallback support for flat binary files.
 
 - **Interactive TUI**:
-    - **Live Disassembly**: Real-time instruction decoding and pipeline visualization.
+    - **Live Disassembly**: Instruction decoding and visualization.
     - **Dual Register View**: Toggle between **General Purpose Registers (x0-x31)** and **CSRs** (mstatus, mepc, etc.).
     - **(new) Information Popup**: Basic machine information and data.
     - **(new) Bus Content View:**: Search bus bytes with address.
