@@ -1,6 +1,9 @@
 ![Language](https://img.shields.io/badge/language-Rust-orange.svg) ![License](https://img.shields.io/badge/license-MIT-blue.svg) ![Backend](https://img.shields.io/badge/UI-Ratatui-green.svg)
 # RsRiscV Emu: Interactive RV32IMAC Emulator in Rust
 
+## Demo
+![RsRisc-V Demo](./assets/v0.4.0_demo.gif)
+
 ## Key Features
 - **ISA Support**:
     - **RV32IMAC Core**: Implements Base Integer (I), Multiply/Divide (M), Atomic (A), and Compressed (C) extensions.
@@ -33,9 +36,6 @@
     - **(new) Bus Content View:**: Search bus bytes with address.
     - **(new) Breakpoint:**: Run until encounter break point. Can have multiple breakpoints.
     - **Exception Panel**: See the exception and its code with raised address.
-
-## Demo
-![RsRisc-V Demo](./assets/v0.4.0_demo.gif)
 
 ## Quick Start
 ### Prerequisites
